@@ -48,7 +48,7 @@ def sharpe_ratio(
     output_colname:         name of the new column which will contain the computed Sharpe Ratio.
     """
     assert returns_colname in df.columns, "Dataframe must contain computed returns before computing Sharpe Ratio"
-    assert risk_free_rate_colname in df.columns, "Dataframe must contain risk free rate of returns before computing Sharpe Ratio"
+    assert risk_free_rate_colname in df.columns, "Dataframe must contain risk-free returns before computing Sharpe Ratio"
 
     returns = df[returns_colname].expanding().mean()
     risk_free_rate = df[risk_free_rate_colname].expanding().mean()
