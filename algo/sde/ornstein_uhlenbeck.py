@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 
-from trading.algo.mean_reversion.brownian_motion import BrownianMotion
+from algo.sde.brownian_motion import BrownianMotion
 
 
 class OrnsteinUhlenbeck(BrownianMotion):
