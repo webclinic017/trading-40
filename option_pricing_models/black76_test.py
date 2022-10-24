@@ -1,4 +1,4 @@
-from trading.option_pricing_models.black76 import Black76Eur
+from option_pricing_models.black76 import Black76Eur
 
 
 # TODO(JP): convert to pytest

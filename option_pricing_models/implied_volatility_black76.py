@@ -1,5 +1,5 @@
-from trading.option_pricing_models.black76 import Black76Eur
-from trading.option_pricing_models.implied_volatility_gbs import _implied_volatility_gbs
+from option_pricing_models.black76 import Black76Eur
+from option_pricing_models.implied_volatility_gbs import _implied_volatility_gbs
 
 
 def implied_volatility_black76_european(option_type, F_t, X_t, t, r, option_price_t, precision, max_num_iterations):

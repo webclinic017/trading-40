@@ -1,4 +1,4 @@
-option_pricing_models/implied_volatility_black76_test.py from trading.option_pricing_models.implied_volatility_black76 import implied_volatility_black76_european
+from option_pricing_models.implied_volatility_black76 import implied_volatility_black76_european
 
 
 # TODO(JP): convert to pytest

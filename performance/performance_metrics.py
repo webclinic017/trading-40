@@ -32,7 +32,7 @@ def compute_log_returns(df: pd.DataFrame, price_colname: str, output_colname: st
 def sharpe_ratio(
         df: pd.DataFrame,
         returns_colname: str,
-        risk_free_rate_colname: str,
+        risk_free_returns_colname: str,
         output_colname: str = "sharpe_ratio",
 ) -> pd.DataFrame:
     """
@@ -48,10 +48,10 @@ def sharpe_ratio(
     output_colname:         name of the new column which will contain the computed Sharpe Ratio.
     """
     assert returns_colname in df.columns, "Dataframe must contain computed returns before computing Sharpe Ratio"
-    assert risk_free_rate_colname in df.columns, "Dataframe must contain risk-free returns before computing Sharpe Ratio"
+    assert risk_free_returns_colname in df.columns, "Dataframe must contain risk-free returns before computing Sharpe Ratio"
 
     returns = df[returns_colname].expanding().mean()
-    risk_free_rate = df[risk_free_rate_colname].expanding().mean()
+    risk_free_rate = df[risk_free_returns_colname].expanding().mean()
     std = df[returns_colname].expanding().std()
 
     df[output_colname] = (returns - risk_free_rate) / std

@@ -1,4 +1,4 @@
- import abc
+import abc
 import numpy as np
 from collections import namedtuple
 from scipy.stats import norm

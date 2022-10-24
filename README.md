@@ -19,7 +19,7 @@ How To:
    - Much of the analysis is driven from notebooks to better render visuals.
    - Assume this repo is cloned into the folder: `/Users/joe/code/trading/`.
    - Activate the conda env.
-   - Run: `export PYTHONPATH=$PYTHONPATH:/Users/joe/code/`. Only need to do this once.
+   - Run: `export PYTHONPATH=$PYTHONPATH:/Users/joe/code/trading`. Only need to do this once.
    - cd `/Users/joe/code/trading/`.
    - Launch `jupyter lab` from here --> allows imports from the whole project: `from trading... import ...`
 

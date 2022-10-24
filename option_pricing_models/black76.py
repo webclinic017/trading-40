@@ -1,8 +1,10 @@
-from trading.option_pricing_models.generalised_black_scholes import GeneralisedEuropeanBlackScholes
+from option_pricing_models.generalised_black_scholes import GeneralisedEuropeanBlackScholes
 
 
 class Black76Eur(GeneralisedEuropeanBlackScholes):
     """
+    See formulae: https://optionsformulas.com/pages/black-76-model.html
+
     Args:
         F_t: price of the underlying
         X_t: underlying strike price

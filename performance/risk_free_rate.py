@@ -3,10 +3,15 @@ from datetime import datetime
 from typing import Optional
 from yahoofinancials import YahooFinancials
 
-from trading.performance.performance_metrics import compute_returns
+from performance.performance_metrics import compute_returns
 
 
-def compute_risk_free_rate(df: pd.DataFrame, method: str, constant: Optional[float] = None) -> pd.DataFrame:
+def compute_risk_free_rate(
+        df: pd.DataFrame,
+        method: str,
+        constant: Optional[float] = None,
+        output_colname: str = "risk_free_returns",
+) -> pd.DataFrame:
     """
     Modifies dataframe `df` to add a column containing a risk-free rate of return for each time step.
 
@@ -14,10 +19,12 @@ def compute_risk_free_rate(df: pd.DataFrame, method: str, constant: Optional[flo
     method:     function to use to compute risk-free returns
     constant:   only use IFF `method=="constant"`. This is the constant value that will be applied.
                     E.g. for 0% returns, use 0.0; for 1% returns, use 0.01, etc..
+    output_colname: name of output column. Only used if method=="constant"
+
     """
     if method == "constant":
         assert constant is not None, "Specify a constant value of risk-free returns."
-        df["risk_free_rate_t"] = constant
+        df[output_colname] = constant
 
     elif method == "us_treasury_note_10yr":
         # Get US Treasury Note data
