@@ -50,18 +50,16 @@ def sharpe_ratio(
     assert returns_colname in df.columns, "Dataframe must contain computed returns before computing Sharpe Ratio"
     assert risk_free_returns_colname in df.columns, "Dataframe must contain risk-free returns before computing Sharpe Ratio"
 
-    returns = df[returns_colname].expanding().mean()
-    risk_free_rate = df[risk_free_returns_colname].expanding().mean()
-    std = df[returns_colname].expanding().std()
+    excess_returns = df[returns_colname] - df[risk_free_returns_colname]
+    df[output_colname] = excess_returns.expanding().mean() / excess_returns.expanding().std()
 
-    df[output_colname] = (returns - risk_free_rate) / std
     return df
 
 
 def sortino_ratio(
         df: pd.DataFrame,
         returns_colname: str,
-        risk_free_rate_colname: str,
+        risk_free_returns_colname: str,
         output_colname: str = "sortino_ratio",
 ) -> pd.DataFrame:
     """
@@ -74,20 +72,33 @@ def sortino_ratio(
     Args:
         df: dataframe
         returns_colname:        name of the column containing the portfolio returns.
-        risk_free_rate_colname: name of the column containing the returns of a risk-free baseline asset.
+        risk_free_returns_colname: name of the column containing the returns of a risk-free baseline asset.
         output_colname:         name of the new column which will contain the computed Sortino Ratio.
     """
     assert returns_colname in df.columns, "Dataframe must contain computed returns before computing Sortino Ratio"
-    assert risk_free_rate_colname in df.columns, "Dataframe must contain risk free rate of returns before computing Sortino Ratio"
+    assert risk_free_returns_colname in df.columns, "Dataframe must contain risk free rate of returns before computing Sortino Ratio"
 
-    returns = df[returns_colname].expanding().mean()
-    risk_free_rate = df[risk_free_rate_colname].expanding().mean()
+    # Initial value of downside-deviation.
+    std = 0.0
 
-    downside_dev_df = df[df[returns_colname] < 0]
-    downside_dev = downside_dev_df[returns_colname].std()
+    # Storge to avoid editing `df` in-loop.
+    sortinos = []
 
-    # Scaling can result in no negative values.
-    assert not math.isnan(downside_dev)
+    # Ugly, but avoids re-indexing. TODO: vectorise.
+    for i, (_, row) in enumerate(df.iterrows()):
 
-    df[output_colname] = (returns - risk_free_rate) / downside_dev
+        # Get data to date to avoid lookahead error.
+        data = df.head(i)
+
+        # If excess_returns are negative, update the calculation of downside-deviation
+        if row["excess_returns"] < 0.0:
+            std = data["excess_returns"].std()
+
+        mean = data["excess_returns"].mean()
+
+        sortino = mean / std if std != 0.0 else np.nan
+        sortinos.append(sortino)
+
+    df["output_colname"] = sortinos
+
     return df
