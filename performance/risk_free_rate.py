@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from yahoofinancials import YahooFinancials
 
-from performance.performance_metrics import compute_returns
+from performance.performance_metrics import percentage_returns
 
 
 def compute_risk_free_rate(
@@ -57,7 +57,7 @@ def get_data_us_treasury_note_10yr(start_date: str, end_date: str, ticker: str =
 
     output_colname = "risk_free_returns"
     df = df \
-        .pipe(compute_returns, price_colname="adjclose", output_colname=output_colname) \
+        .pipe(percentage_returns, price_colname="adjclose", output_colname=output_colname) \
         .fillna(0.0)
 
     return df[[output_colname]]

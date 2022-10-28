@@ -1,9 +1,9 @@
-import math
+
 import numpy as np
 import pandas as pd
 
 
-def compute_returns(df: pd.DataFrame, price_colname: str, output_colname: str = "returns") -> pd.DataFrame:
+def percentage_returns(df: pd.DataFrame, price_colname: str, output_colname: str = "returns") -> pd.DataFrame:
     """
     Computes simple percentage returns between adjacent timesteps.
     Args:
@@ -16,7 +16,7 @@ def compute_returns(df: pd.DataFrame, price_colname: str, output_colname: str = 
     return df
 
 
-def compute_log_returns(df: pd.DataFrame, price_colname: str, output_colname: str = "log_returns") -> pd.DataFrame:
+def log_returns(df: pd.DataFrame, price_colname: str, output_colname: str = "log_returns") -> pd.DataFrame:
     """
     Computes the natural log (ln) of returns between adjacent timesteps.
     Args:
@@ -29,6 +29,17 @@ def compute_log_returns(df: pd.DataFrame, price_colname: str, output_colname: st
     return df
 
 
+# TODO
+def cumulative_percentage_returns():
+    ...
+
+
+# TODO
+def cumulative_log_returns():
+    ...
+
+
+# TODO: option to annualise
 def sharpe_ratio(
         df: pd.DataFrame,
         returns_colname: str,
@@ -36,8 +47,8 @@ def sharpe_ratio(
         output_colname: str = "sharpe_ratio",
 ) -> pd.DataFrame:
     """
-    Computes Sharpe Ratio expanding over time dimension.
-    E.g. for daily data, the calculation uses summary statistics up to day i, where i \in {0,t}.
+    Computes Sharpe Ratio expanding over time dimension to avoid look-ahead bias.
+    I.e. the calculation uses summary statistics up to time period i, where i \in {0,t}.
 
     Leverages the Martingale property: E[X_{n+1} | X_1, ... ,X_n] = X_n to use returns at time t
     in place of expected returns from time t+1 onwards.
@@ -63,8 +74,8 @@ def sortino_ratio(
         output_colname: str = "sortino_ratio",
 ) -> pd.DataFrame:
     """
-    Computes Sortino Ratio expanding over time dimension.
-    E.g. for daily data, the calculation uses summary statistics up to day i, where i \in {0,t}.
+    Computes Sortino Ratio expanding over time dimension to avoid look-ahead bias.
+    I.e. the calculation uses summary statistics up to time period i, where i \in {0,t}.
 
     Leverages the Martingale property: E[X_{n+1} | X_1, ... ,X_n] = X_n to use returns at time t
     in place of expected returns from time t+1 onwards.
@@ -99,6 +110,6 @@ def sortino_ratio(
         sortino = mean / std if std != 0.0 else np.nan
         sortinos.append(sortino)
 
-    df["output_colname"] = sortinos
+    df[output_colname] = sortinos
 
     return df
