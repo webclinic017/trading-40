@@ -17,8 +17,8 @@ class OrnsteinUhlenbeck(BrownianMotion):
     ):
         """
         Args: variables are given symbolic names to mirror mathematical literature.
-            k:      mean reversion parameter
-            theta:  asymptotic mean
+            k:      speed of mean reversion.
+            theta:  asymptotic mean.
             sigma:  volatility of the process, i.e. scale of Brownian motion (std dev).
             X_0:    initial value. Free to choose any.
 
