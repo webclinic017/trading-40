@@ -35,7 +35,7 @@ class OrnsteinUhlenbeck(BrownianMotion):
         self.theta = theta
 
         # Default: set initial value to long-run mean.
-        self.X_0 = X_0 or theta
+        self.X_0 = X_0 if X_0 is not None else theta
 
     def __call__(self, num_samples: int) -> np.ndarray:
         # Construct vector of time steps for each sample data point.
