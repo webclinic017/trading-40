@@ -65,3 +65,34 @@ def log_likelihood_ou(theta, mu, sigma_sq, x, dt):
     log_likelihood = -0.5*np.log(2.0*math.pi) - np.log(tau) - c * sq_sum
 
     return log_likelihood
+
+
+
+def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
+    """
+
+    Args:
+        asset1:
+        asset2:
+        dt: time interval
+        alpha: ratio of asset1.
+        B_candidates: potential choices of quantity of asset2 (to later calculate ratio, beta).
+
+    Returns:
+
+    """
+    ou_params_candidates = []
+    log_likelihoods = []
+    for B in B_candidates:
+        beta = B / asset2.iloc[0]
+
+        # Define:  X_t = alpha * S1_t - beta * S2_t
+        x = (alpha*asset1 - beta*asset2).to_numpy()
+
+        ou_params = calc_optimal_ou_params(x, dt)
+        ll = log_likelihood_ou(theta=ou_params.theta, mu=ou_params.mu, sigma_sq=ou_params.sigma_sq, x=x, dt=dt)
+
+        log_likelihoods.append(ll)
+        ou_params_candidates.append(ou_params)
+
+    return log_likelihoods, ou_params_candidates
