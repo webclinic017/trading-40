@@ -1,7 +1,9 @@
 import math
 import numpy as np
 from collections import namedtuple
+from operator import itemgetter
 
+import pandas as pd
 
 # (float, float, float, tuple)
 OUParams = namedtuple("ou_params", "theta mu sigma sigma_sq sums")
@@ -67,7 +69,6 @@ def log_likelihood_ou(theta, mu, sigma_sq, x, dt):
     return log_likelihood
 
 
-
 def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
     """
 
@@ -84,10 +85,13 @@ def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
     ou_params_candidates = []
     log_likelihoods = []
     for B in B_candidates:
-        beta = B / asset2.iloc[0]
+        beta = B / asset2[0]
 
         # Define:  X_t = alpha * S1_t - beta * S2_t
-        x = (alpha*asset1 - beta*asset2).to_numpy()
+        x = alpha*asset1 - beta*asset2
+
+        if isinstance(x, pd.Series):
+            x = x.to_numpy()
 
         ou_params = calc_optimal_ou_params(x, dt)
         ll = log_likelihood_ou(theta=ou_params.theta, mu=ou_params.mu, sigma_sq=ou_params.sigma_sq, x=x, dt=dt)
@@ -96,3 +100,45 @@ def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
         ou_params_candidates.append(ou_params)
 
     return log_likelihoods, ou_params_candidates
+
+
+def ou_hedging_parameters(log_likelihoods, ou_params_candidates, B_candidates, S2_0, A, alpha):
+    """
+
+    Args:
+        log_likelihoods:
+        ou_params_candidates:
+        B_candidates:
+        S2_0:
+        A:
+        alpha:
+
+    Returns:
+
+    """
+    # Optimise over log-likelihood
+    i = np.argmax(log_likelihoods)
+    ll_optimised = {
+        "index": i,
+        "log_likelihood": log_likelihoods[i],
+        "ou_params": ou_params_candidates[i],
+        "alpha": alpha,
+        "beta": B_candidates[i] / S2_0,
+        "A": A,
+        "B": B_candidates[i],
+    }
+
+    # Optimise over arbitrary OU param, e.g. mu is at index=1
+    mu_index = 1
+    j = ou_params_candidates.index(max(ou_params_candidates, key=itemgetter(mu_index)))
+    mu_optimised = {
+        "index": j,
+        "log_likelihood": log_likelihoods[j],
+        "ou_params": ou_params_candidates[j],
+        "alpha": alpha,
+        "beta": B_candidates[j] / S2_0,
+        "A": A,
+        "B": B_candidates[j],
+    }
+
+    return ll_optimised, mu_optimised
