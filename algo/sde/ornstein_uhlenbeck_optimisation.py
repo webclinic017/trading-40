@@ -27,13 +27,13 @@ def calc_optimal_ou_params(x, dt):
     X_yy = np.sum(x[1:]**2)
 
     # x_{i-1} * x_{i}
-    X_xy = np.sum(x[:-1] *x[1:])
+    X_xy = np.sum(x[:-1] * x[1:])
 
 
     # 2. Optimal OU Parameters, given (alpha, beta). Explicit solution to MLE.
 
     # Long-run mean: theta
-    theta = (X_y * X_xx - X_x*X_xy) / ( n*(X_xx - X_xy) - (X_x**2 - X_x*X_y))
+    theta = (X_y * X_xx - X_x*X_xy) / ( n*(X_xx - X_xy) - (X_x**2 - X_x*X_y) )
 
     # Speed of mean reversion: mu
     phi = (X_xy - theta*(X_x + X_y) + n*(theta**2)) / (X_xx - 2*theta*X_x + n*(theta**2))
@@ -69,6 +69,22 @@ def log_likelihood_ou(theta, mu, sigma_sq, x, dt):
     return log_likelihood
 
 
+def estimate_halflife_ou(spread: pd.Series) -> float:
+    # Shape: (m, 2), where m = n-1; n := len(spread)
+    X = spread.shift().iloc[1:].to_frame().assign(const=1)
+
+    # Shape: (m, )
+    y = spread.diff().iloc[1:]
+
+    # Shape: ((2, m) * (m, 2)) * ((2, m) * (m,)) = (2 * 2) * (2,) = (2,)
+    beta = np.linalg.inv(X.T @ X) @ X.T @ y
+
+    # Consider: int(round(halflife, 0))
+    halflife = -np.log(2) / beta[0]
+
+    return halflife
+
+
 def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
     """
 
@@ -84,22 +100,27 @@ def ou_bet_size_loglikelihoods(asset1, asset2, dt, alpha, B_candidates):
     """
     ou_params_candidates = []
     log_likelihoods = []
+    halflives = []
     for B in B_candidates:
         beta = B / asset2[0]
 
-        # Define:  X_t = alpha * S1_t - beta * S2_t
+        # Define the spread: X_t = alpha * S1_t - beta * S2_t
         x = alpha*asset1 - beta*asset2
 
+        # TODO: rm hl
         if isinstance(x, pd.Series):
+            halflife = estimate_halflife_ou(x)
+            halflives.append(halflife)
+
             x = x.to_numpy()
 
         ou_params = calc_optimal_ou_params(x, dt)
-        ll = log_likelihood_ou(theta=ou_params.theta, mu=ou_params.mu, sigma_sq=ou_params.sigma_sq, x=x, dt=dt)
-
-        log_likelihoods.append(ll)
         ou_params_candidates.append(ou_params)
 
-    return log_likelihoods, ou_params_candidates
+        ll = log_likelihood_ou(theta=ou_params.theta, mu=ou_params.mu, sigma_sq=ou_params.sigma_sq, x=x, dt=dt)
+        log_likelihoods.append(ll)
+
+    return log_likelihoods, ou_params_candidates, halflives
 
 
 def ou_hedging_parameters(log_likelihoods, ou_params_candidates, B_candidates, S2_0, A, alpha):
