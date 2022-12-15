@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 
-from algo.sde.brownian_motion import BrownianMotion
+from algo.models.sde.brownian_motion_model import BrownianMotion
 
 
 class OrnsteinUhlenbeck(BrownianMotion):

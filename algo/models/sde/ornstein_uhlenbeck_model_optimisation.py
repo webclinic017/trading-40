@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 
-from algo.sde.ornstein_uhlenbeck_parameters import HedgeParamsOU, ModelParamsOU, ModelParamsOUCandidates
+from algo.models.sde.ornstein_uhlenbeck_model_parameters import HedgeParamsOU, ModelParamsOU, ModelParamsOUCandidates
 
 
 class Optimiser(abc.ABC):
@@ -60,7 +60,6 @@ class OptimiserOU(Optimiser):
 
     def model_params_ou(self, x: np.ndarray) -> ModelParamsOU:
         dt = self.dt
-
         n = x.shape[0]
 
         # 1. Define sums - all sums are from i=1:n
@@ -79,7 +78,6 @@ class OptimiserOU(Optimiser):
 
         # x_{i-1} * x_{i}
         X_xy = np.sum(x[:-1] * x[1:])
-
 
         # 2. Optimal OU Parameters, given (alpha, beta). Explicit solution to MLE.
 
