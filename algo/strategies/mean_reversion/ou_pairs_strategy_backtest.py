@@ -9,9 +9,11 @@ from algo.strategies.mean_reversion.ou_pairs_strategy import OUPairsTradingStrat
 
 def run():
     # num_data_full = 24 * 729  # 730 days is the max, includes today.
+    # num_data_full = 365
     num_data_full = 24 * 365
-
     interval = "1h"
+    # interval = "1d"
+
     ticker0 = "BZ=F"
     ticker1 = "CL=F"
 
@@ -20,6 +22,7 @@ def run():
     # Backtrader needs datetime objects
     end_date = today
     start_date = today - timedelta(hours=num_data_full)
+    # start_date = today - timedelta(days=num_data_full)
 
     # Yahoo needs strings
     end_date_str = end_date.strftime("%Y-%m-%d")
