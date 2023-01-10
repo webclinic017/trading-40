@@ -1,0 +1,21 @@
+defaults:
+  - _self_
+  - data: hourly  # [hourly, daily]
+#  - data: daily  # [hourly, daily]
+  - pairs: micro_oil_mini_gas  # [micro_oil_mini_gas, brent_oil_wti_oil, ...]
+
+broker:
+  cash_initial: 1000.0  # Starting cash balance
+  commission: 0.02      # Percentage commission - broker fees: 0.005 is 0.5%.
+
+strategy:
+  dt: 1.0  # 1/23
+  A: 1.0
+
+
+# Stop hydra from redirecting outputs to `outputs` folder
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+

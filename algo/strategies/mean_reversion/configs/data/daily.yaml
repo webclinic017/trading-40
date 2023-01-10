@@ -1,0 +1,2 @@
+num_data_full: 730  # 730 days is the max, includes today.
+interval: "1d"

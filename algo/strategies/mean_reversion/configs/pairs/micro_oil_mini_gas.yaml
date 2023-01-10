@@ -1,0 +1,5 @@
+ticker0: "MCL=F"  # Micrp WTI crude oil (cash)
+ticker1: "QG=F"   # Mini natural gas (cash)
+z_entry: 0.5
+z_exit: 0.1
+use_fixed_train_size: True

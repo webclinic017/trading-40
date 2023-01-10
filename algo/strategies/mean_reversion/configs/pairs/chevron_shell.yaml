@@ -1,0 +1,5 @@
+ticker0: "CVX"  # Chevron
+ticker1: "SHEL"  # Shell
+z_entry: 0.5
+z_exit: 0.1
+use_fixed_train_size: True
