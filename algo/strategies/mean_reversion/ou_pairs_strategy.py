@@ -15,46 +15,44 @@ from algo.models.sde.ornstein_uhlenbeck_model_optimisation import OptimiserOU
 
 class OUPairsTradingStrategy(bt.Strategy):
 
-    def __init__(self):
+    def __init__(
+            self,
+            z_entry: float,
+            z_exit: float,
+            num_train_initial: int,
+            num_test: int,
+            use_fixed_train_size: bool,
+            dt: float,
+            A: float,
+    ):
         print(f"Initial Position:\n {self.position}")
 
-        # Initial run condtions
+        # Initial run conditions
         self.model_trained = False  # Check if the model has been trained at least once.
-        self.count = 0  # Resets
-        self.global_count = 0  # Never resets
+        self.count = 0         # Resets.
+        self.global_count = 0  # Never resets.
 
-        # TODO: define in params config.
-        # Data Parameters
-        use_fixed_train_size = True
-        # use_fixed_train_size = False
-
-        # Number of data points needed to train the initial model.
-        self.num_train_initial = 24 * 7 * 13  # Weeks.
-        # self.num_train_initial = 60  # Weeks.
-
-        # Number of data points to elapse before retraining the model with the original and new data
-        self.num_test = 24 * 7  # num_train_ongoing = 24*7
-        # self.num_test = 30  # num_train_ongoing = 24*7
+        self.num_train_initial = num_train_initial  # Number of data points needed to train the initial model.
+        self.num_test = num_test  # Number of data points to elapse before retraining the model.
 
         # Initial OU conditions
         self.alpha = None
         self.beta = None
+        self.optimiser = OptimiserOU(A=A, dt=dt)
 
         # Initial Time Series
         self.X = np.array([])   # Spread
         self.S0 = []            # Asset 0
         self.S1 = []            # Asset 1
+
+        # Use a rolling vs. expanding training set.
         if use_fixed_train_size:
             self.S0 = deque(self.S0, maxlen=self.num_train_initial)
             self.S1 = deque(self.S1, maxlen=self.num_train_initial)
 
         # Trading Signals
-        self.z_entry = 0.5
-        self.z_exit = 0.1
-
-        dt = 1
-        # dt = 1/23
-        self.optimiser = OptimiserOU(A=1.0, dt=dt)
+        self.z_entry = z_entry
+        self.z_exit = z_exit
 
         # Tracking.
         self.order_buy = None
