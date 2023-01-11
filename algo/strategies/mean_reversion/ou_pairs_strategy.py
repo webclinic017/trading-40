@@ -60,12 +60,8 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.order_sell = None
         self.order_close0 = None
         self.order_close1 = None
-        # self.in_market = False
 
-        # TODO: fill in the value of `spread_zscore` in long/short/exit and then scatter plot that.
-        # `global_step` is the index.
-        columns = ["S0", "S1", "spread", "spread_zscore", "long", "short", "exit"]
-        # output_data = np.zeros((len(self.data.array), len(columns)))
+        columns = ["S0", "S1", "spread", "spread_zscore", "long", "short", "exit_long", "exit_short"]
         output_data = np.full((len(self.data.array), len(columns)), np.nan)
         self.df = pd.DataFrame(data=output_data)
         self.df.columns = columns
@@ -107,35 +103,26 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.X = np.append(self.X, current_spread)
 
         # Current z_score.
-        z_score = (current_spread - np.mean(self.X)) / np.std(self.X)
-
-        # Determine position.
-        """
-        if z_score <= -self.z_entry:
-            self.long_portfolio(z_score)
-
-        elif z_score >= self.z_entry:
-            self.short_portfolio(z_score)
-
-        elif np.abs(z_score) <= self.z_exit:
-            self.exit_market(z_score)
-        """
+        # z_score = (current_spread - np.mean(self.X)) / np.std(self.X)
+        num_train_initial = 2184  # TODO: properly.
+        X = self.X[-num_train_initial:]
+        z_score = (current_spread - np.mean(X)) / np.std(X)  # TODO: option.
 
         # Open a long portfolio position on the lower boundary of the entry region.
         if z_score <= -self.z_entry:
-            self.open_long_portfolio(z_score)
+            self.long_portfolio(z_score)
 
         # Open a short portfolio position on the upper boundary of the entry region.
         elif z_score >= self.z_entry:
-            self.open_short_portfolio(z_score)
+            self.short_portfolio(z_score)
 
-        # Close any open long portfolio positions on the upper boundary of the exit region.
-        elif z_score <= self.z_exit:
-            self.close_long_portfolio(z_score)
+        # Close any open long portfolio positions on the lower boundary of the exit region.
+        elif z_score >= -self.z_exit and self.is_long:
+            self.exit_market(z_score, exit_mode="exit_long")
 
-        # Close any open short portfolio positions on the lower boundary of the exit region.
-        elif z_score >= -self.z_exit:
-            self.close_short_portfolio(z_score)
+        # Close any open short portfolio positions on the upper boundary of the exit region.
+        elif z_score <= self.z_exit and self.is_short:
+            self.exit_market(z_score, exit_mode="exit_short")
 
         self.df.loc[self.global_count, "S0"] = self.S0[0]
         self.df.loc[self.global_count, "S1"] = self.S1[0]
@@ -159,8 +146,6 @@ class OUPairsTradingStrategy(bt.Strategy):
         # (Re-)Compute historic spread using (new) hedging parameters.
         self.X = self.alpha * S0 - self.beta * S1
 
-        # if not pretrade_checks(S0, S1, self.X):
-        #     return
         pretrade_checks(S0, S1, self.X)
 
         # Reset counter for ongoing training.
@@ -180,9 +165,6 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.order_sell = self.sell(data=self.data1, size=self.B, exectype=bt.Order.Market)
         self.df.loc[self.global_count, "long"] = z_score  # self.X[0]
 
-        # TODO: look for better way - what if orders are rejected? Then not in market when think we are.
-        # self.in_market = True
-
     def short_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
         if self.in_market or self.order_buy is not None or self.order_sell is not None:
@@ -194,47 +176,29 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.order_buy = self.buy(data=self.data1, size=self.B, exectype=bt.Order.Market)
         self.df.loc[self.global_count, "short"] = z_score  # self.X[0]
 
-        # TODO: look for better way - what if orders are rejected? Then not in market when think we are.
-        # self.in_market = True
-
-    def exit_market(self, z_score):
+    def exit_market(self, z_score, exit_mode):
         # Do nothing if already out of the market.
-        # if self.order_buy is None and self.order_sell is None:
-        #     return
         if not self.in_market or self.order_close0 is not None or self.order_close1 is not None:
             return
-        # if not self.in_market or self.order_buy is not None or self.order_sell is not None:
-        #     return
-        print(f"{self.global_count} {self.count} EXITING MARKET")
 
-        # TODO: should self.close return something to not double close?
+        print(f"{self.global_count} {self.count} EXITING MARKET")
         self.order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
         self.order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
-        """
-        order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
-        order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
-
-        if self.positionsbyname["df0"].size < 0 and self.positionsbyname["df1"].size > 0:
-            self.order_buy = order_close0
-            self.order_sell = order_close1
-
-        elif self.positionsbyname["df0"].size > 0 and self.positionsbyname["df1"].size < 0:
-            self.order_sell = order_close0
-            self.order_buy = order_close1
-
-        else:
-            raise ValueError("Position size error on exit.")
-        """
-
-        self.df.loc[self.global_count, "exit"] = z_score  # self.X[0]
-
-        # TODO: prefer proper check.
-        # self.in_market = False
+        # self.df.loc[self.global_count, "exit"] = z_score  # self.X[0]
+        self.df.loc[self.global_count, exit_mode] = z_score  # self.X[0]
 
     @property
     def in_market(self):
-        # return self.position.size == 0
-        return self.positionsbyname["df0"].size != 0 or self.positionsbyname["df1"].size != 0
+        # return self.positionsbyname["df0"].size != 0 or self.positionsbyname["df1"].size != 0
+        return self.is_long or self.is_short
+
+    @property
+    def is_long(self):
+        return self.positionsbyname["df0"].size > 0.0 and self.positionsbyname["df1"].size < 0.0
+
+    @property
+    def is_short(self):
+        return self.positionsbyname["df0"].size < 0.0 and self.positionsbyname["df1"].size > 0.0
 
     @staticmethod
     def log(message: str, date_time: datetime) -> None:

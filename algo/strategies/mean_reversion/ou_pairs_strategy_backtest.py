@@ -2,9 +2,11 @@ import backtrader as bt
 import backtrader.analyzers as btanalyzers
 import backtrader.feeds as btfeeds
 import hydra
-from omegaconf import DictConfig, OmegaConf
+import matplotlib.pyplot as plt
 import yfinance as yf
 from datetime import date, timedelta
+from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
 
 from algo.strategies.mean_reversion.ou_pairs_strategy import OUPairsTradingStrategy
 
@@ -35,8 +37,10 @@ def run(cfg: DictConfig):
     assert len(df0) > 0
     assert len(df1) > 0
 
-    data_path0 = "data/df1.csv"
-    data_path1 = "data/df2.csv"
+    data_dir = Path.cwd().joinpath("data")
+    Path.mkdir(data_dir)
+    data_path0 = data_dir.joinpath("df0.csv")
+    data_path1 = data_dir.joinpath("df1.csv")
     df0.to_csv(data_path0)
     df1.to_csv(data_path1)
 
@@ -80,6 +84,43 @@ def run(cfg: DictConfig):
     print(f"Final Portfolio Value: {cb.broker.getvalue()}")
     print(f"Initial Cash: {initial_cash}")
     print(f"Final Cash: {cb.broker.getcash()}")
+
+    df = strategy.df
+    df.to_csv("plot_data.csv")
+
+    # Drop the rows of all NaNs, keep individual (row,col) NaN entries.
+    # df.drop(columns=["Unnamed: 0"], inplace=True)
+    df.dropna(axis=0, how="all", inplace=True)
+
+    """
+    fig1 = plt.figure()
+    plt.plot(df.index, df["S0"], color="royalblue", label="S0")
+    plt.plot(df.index, df["S1"], color="orange", label="S1")
+    plt.legend()
+    plt.savefig("assets.png")
+
+    fig2 = plt.figure()
+    plt.plot(df.index, df["spread"], color="black", label="spread")
+    plt.legend()
+    plt.savefig("computed_spread.png")
+    """
+
+    fig3 = plt.figure()
+    plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
+    plt.scatter(df.index, df["long"], color="deepskyblue", marker="^", label="long")
+    plt.scatter(df.index, df["short"], color="orange", marker="v", label="short")
+    plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")
+    plt.scatter(df.index, df["exit_short"], color="darkorange", marker="X", label="exit_short")
+    xmin = df.index[0]
+    xmax = df.index[-1]
+    plt.hlines([-cfg.pairs.z_entry, cfg.pairs.z_entry], xmin=xmin, xmax=xmax, color="forestgreen", linestyle="dashed", label="z_entry")
+    plt.hlines([-cfg.pairs.z_exit, cfg.pairs.z_exit], xmin=xmin, xmax=xmax, color="red", linestyle="dashed", label="z_exit")
+    plt.title("Spread - Entries and Exits")
+    plt.xlabel(f"Time Step ({interval})")
+    plt.ylabel("Normalised Spread, Z")
+    plt.legend()
+    plt.savefig("spread_entries_exits.png")
+    plt.show()
 
     cb.plot()
 
