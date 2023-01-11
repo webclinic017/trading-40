@@ -1,5 +1,6 @@
 # Total number of daata points for training and rolling tests.
-num_data_full: 8760  # 24 * 365.  # 730 days is the max, includes today.
+#num_data_full: 8760  # 24 * 365.  # 730 days is the max, includes today.
+num_data_full: 14000  # 24 * 730.
 
 # Number of data points needed to train the initial model.
 num_train_initial:  2184  # 24 hours * 7 days * 13 weeks.

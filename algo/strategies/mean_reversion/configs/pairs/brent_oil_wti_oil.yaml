@@ -1,5 +1,5 @@
 ticker0: "BZ=F"  # Brent crude oil (cash)
 ticker1: "CL=F"  # WTI crude oil (physical)
-z_entry: 0.5
-z_exit: 0.1
+z_entry: 2.0
+z_exit: 0.75  # 0.5
 use_fixed_train_size: True

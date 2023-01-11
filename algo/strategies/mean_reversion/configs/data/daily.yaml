@@ -1,2 +1,9 @@
 num_data_full: 730  # 730 days is the max, includes today.
+
+# Number of data points needed to train the initial model.
+num_train_initial:  180
+
+# Number of data points to elapse before retraining the model with the original and new data
+num_test: 60  # 23
+
 interval: "1d"
