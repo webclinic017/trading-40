@@ -1,8 +1,9 @@
 import backtrader as bt
 import numpy as np
-import time
+import pandas as pd
 from collections import deque
 from datetime import datetime
+
 from algo.cointegration.augmented_dickey_fuller import adf_stationarity
 from algo.cointegration.engle_granger import engle_granger_bidirectional
 from algo.models.sde.ornstein_uhlenbeck_model_optimisation import OptimiserOU
@@ -40,7 +41,7 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.beta = None
         self.optimiser = OptimiserOU(A=A, dt=dt)
 
-        # Initial Time Series
+        # Initial time series
         self.X = np.array([])   # Spread
         self.S0 = []            # Asset 0
         self.S1 = []            # Asset 1
@@ -54,9 +55,20 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.z_entry = z_entry
         self.z_exit = z_exit
 
-        # Tracking.
+        # Tracking
         self.order_buy = None
         self.order_sell = None
+        self.order_close0 = None
+        self.order_close1 = None
+        # self.in_market = False
+
+        # TODO: fill in the value of `spread_zscore` in long/short/exit and then scatter plot that.
+        # `global_step` is the index.
+        columns = ["S0", "S1", "spread", "spread_zscore", "long", "short", "exit"]
+        # output_data = np.zeros((len(self.data.array), len(columns)))
+        output_data = np.full((len(self.data.array), len(columns)), np.nan)
+        self.df = pd.DataFrame(data=output_data)
+        self.df.columns = columns
 
     def next(self):
         self.count += 1
@@ -75,7 +87,7 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.S0.append(p0)
         self.S1.append(p1)
 
-        # Train OU-Model for the first time
+        # Train OU-Model for the first time.
         if self.count >= self.num_train_initial and not self.model_trained:
             self.train()
 
@@ -85,8 +97,9 @@ class OUPairsTradingStrategy(bt.Strategy):
 
         # (Re-)Train OU-Model with updated data as soon as we are not in the market.
         if self.count >= self.num_test \
-                and not self.order_buy \
-                and not self.order_sell:
+                and not self.in_market \
+                and self.order_buy is None \
+                and self.order_sell is None:
             self.train()
 
         # X will have been populated during training.
@@ -97,17 +110,37 @@ class OUPairsTradingStrategy(bt.Strategy):
         z_score = (current_spread - np.mean(self.X)) / np.std(self.X)
 
         # Determine position.
+        """
         if z_score <= -self.z_entry:
-            self.long_portfolio()
-            # time.sleep(1.0)
+            self.long_portfolio(z_score)
 
         elif z_score >= self.z_entry:
-            self.short_portfolio()
-            # time.sleep(1.0)
+            self.short_portfolio(z_score)
 
         elif np.abs(z_score) <= self.z_exit:
-            self.exit_market()
-            # time.sleep(1.0)
+            self.exit_market(z_score)
+        """
+
+        # Open a long portfolio position on the lower boundary of the entry region.
+        if z_score <= -self.z_entry:
+            self.open_long_portfolio(z_score)
+
+        # Open a short portfolio position on the upper boundary of the entry region.
+        elif z_score >= self.z_entry:
+            self.open_short_portfolio(z_score)
+
+        # Close any open long portfolio positions on the upper boundary of the exit region.
+        elif z_score <= self.z_exit:
+            self.close_long_portfolio(z_score)
+
+        # Close any open short portfolio positions on the lower boundary of the exit region.
+        elif z_score >= -self.z_exit:
+            self.close_short_portfolio(z_score)
+
+        self.df.loc[self.global_count, "S0"] = self.S0[0]
+        self.df.loc[self.global_count, "S1"] = self.S1[0]
+        self.df.loc[self.global_count, "spread"] = self.X[0]
+        self.df.loc[self.global_count, "spread_zscore"] = z_score
 
     def train(self):
         S0 = np.array(self.S0)
@@ -136,34 +169,72 @@ class OUPairsTradingStrategy(bt.Strategy):
         # Record that the model has been trained at least once.
         self.model_trained = True
 
-    def long_portfolio(self):
-        # Do nothing if already in the market.
-        if self.order_buy is not None or self.order_sell is not None:
+    def long_portfolio(self, z_score):
+        # Do nothing if already in the market or if orders are already open.
+        if self.in_market or self.order_buy is not None or self.order_sell is not None:
             return
 
         # Buy asset S0 and sell asset S1.
         print(f"{self.global_count} {self.count} LONG PORTFOLIO")
         self.order_buy = self.buy(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_sell = self.sell(data=self.data1, size=self.B, exectype=bt.Order.Market)
+        self.df.loc[self.global_count, "long"] = z_score  # self.X[0]
 
-    def short_portfolio(self):
-        # Do nothing if already in the market.
-        if self.order_buy is not None or self.order_sell is not None:
+        # TODO: look for better way - what if orders are rejected? Then not in market when think we are.
+        # self.in_market = True
+
+    def short_portfolio(self, z_score):
+        # Do nothing if already in the market or if orders are already open.
+        if self.in_market or self.order_buy is not None or self.order_sell is not None:
             return
 
         # Sell asset S0 and buy asset S1.
         print(f"{self.global_count} {self.count} SHORT PORTFOLIO")
         self.order_sell = self.sell(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_buy = self.buy(data=self.data1, size=self.B, exectype=bt.Order.Market)
+        self.df.loc[self.global_count, "short"] = z_score  # self.X[0]
 
-    def exit_market(self):
+        # TODO: look for better way - what if orders are rejected? Then not in market when think we are.
+        # self.in_market = True
+
+    def exit_market(self, z_score):
         # Do nothing if already out of the market.
-        if self.order_buy is None and self.order_sell is None:
+        # if self.order_buy is None and self.order_sell is None:
+        #     return
+        if not self.in_market or self.order_close0 is not None or self.order_close1 is not None:
             return
-
+        # if not self.in_market or self.order_buy is not None or self.order_sell is not None:
+        #     return
         print(f"{self.global_count} {self.count} EXITING MARKET")
-        self.close(data=self.data0, exectype=bt.Order.Market)
-        self.close(data=self.data1, exectype=bt.Order.Market)
+
+        # TODO: should self.close return something to not double close?
+        self.order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
+        self.order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
+        """
+        order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
+        order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
+
+        if self.positionsbyname["df0"].size < 0 and self.positionsbyname["df1"].size > 0:
+            self.order_buy = order_close0
+            self.order_sell = order_close1
+
+        elif self.positionsbyname["df0"].size > 0 and self.positionsbyname["df1"].size < 0:
+            self.order_sell = order_close0
+            self.order_buy = order_close1
+
+        else:
+            raise ValueError("Position size error on exit.")
+        """
+
+        self.df.loc[self.global_count, "exit"] = z_score  # self.X[0]
+
+        # TODO: prefer proper check.
+        # self.in_market = False
+
+    @property
+    def in_market(self):
+        # return self.position.size == 0
+        return self.positionsbyname["df0"].size != 0 or self.positionsbyname["df1"].size != 0
 
     @staticmethod
     def log(message: str, date_time: datetime) -> None:
@@ -179,14 +250,30 @@ class OUPairsTradingStrategy(bt.Strategy):
             if order.isbuy():
                 msg = f"BUY COMPLETE: {order.executed.price}"
                 self.log(msg, order.executed.dt)
+
                 # Allow new orders.
-                self.order_buy = None
+                if self.order_buy is not None and order.ref == self.order_buy.ref:
+                    self.order_buy = None
+
+                elif self.order_close0 is not None and order.ref == self.order_close0.ref:
+                    self.order_close0 = None
+
+                elif self.order_close1 is not None and order.ref == self.order_close1.ref:
+                    self.order_close1 = None
 
             else:
                 msg = f"SELL COMPLETE: {order.executed.price}"
                 self.log(msg, order.executed.dt)
+
                 # Allow new orders.
-                self.order_sell = None
+                if self.order_sell is not None and order.ref == self.order_sell.ref:
+                    self.order_sell = None
+
+                elif self.order_close0 is not None and order.ref == self.order_close0.ref:
+                    self.order_close0 = None
+
+                elif self.order_close1 is not None and order.ref == self.order_close1.ref:
+                    self.order_close1 = None
 
         elif order.status in [order.Expired, order.Canceled, order.Margin]:
             self.log(f"{order.Status[order.status]}", order.executed.dt)
@@ -194,12 +281,10 @@ class OUPairsTradingStrategy(bt.Strategy):
 
 def pretrade_checks(S0, S1, spread) -> None:
     results = {
-        # "adf_S0_non-stat_c": not adf_stationarity(S0, trend="c"),
-        # "adf_S1_non-stat_c": not adf_stationarity(S1, trend="c"),
-        # Test for stationarity in the actual spread series generated by the OU Model/
+        # Test for stationarity in the actual spread series generated by the OU Model.
         "adf_c": adf_stationarity(spread, trend="c"),
         # Test for cointegration in the underlying asset price series.
-        "engle_granger_c": engle_granger_bidirectional(S0, S1, trend="c"),
+        # "engle_granger_c": engle_granger_bidirectional(S0, S1, trend="c"),
     }
 
     print(results)
