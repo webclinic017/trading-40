@@ -92,21 +92,9 @@ def run(cfg: DictConfig):
     # df.drop(columns=["Unnamed: 0"], inplace=True)
     df.dropna(axis=0, how="all", inplace=True)
 
-    """
-    fig1 = plt.figure()
-    plt.plot(df.index, df["S0"], color="royalblue", label="S0")
-    plt.plot(df.index, df["S1"], color="orange", label="S1")
-    plt.legend()
-    plt.savefig("assets.png")
-
-    fig2 = plt.figure()
-    plt.plot(df.index, df["spread"], color="black", label="spread")
-    plt.legend()
-    plt.savefig("computed_spread.png")
-    """
-
     fig3 = plt.figure()
     plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
+    plt.plot(df.index, df["spread_zscore_all_data"], color="black", linestyle="dotted", label="spread_zscore_all_data")
     plt.scatter(df.index, df["long"], color="deepskyblue", marker="^", label="long")
     plt.scatter(df.index, df["short"], color="orange", marker="v", label="short")
     plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")

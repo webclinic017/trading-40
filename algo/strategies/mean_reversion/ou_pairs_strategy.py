@@ -35,6 +35,7 @@ class OUPairsTradingStrategy(bt.Strategy):
 
         self.num_train_initial = num_train_initial  # Number of data points needed to train the initial model.
         self.num_test = num_test  # Number of data points to elapse before retraining the model.
+        self.use_fixed_train_size = use_fixed_train_size  # Number of data points to elapse before retraining the model.
 
         # Initial OU conditions
         self.alpha = None
@@ -47,7 +48,7 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.S1 = []            # Asset 1
 
         # Use a rolling vs. expanding training set.
-        if use_fixed_train_size:
+        if self.use_fixed_train_size:
             self.S0 = deque(self.S0, maxlen=self.num_train_initial)
             self.S1 = deque(self.S1, maxlen=self.num_train_initial)
 
@@ -103,10 +104,13 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.X = np.append(self.X, current_spread)
 
         # Current z_score.
-        # z_score = (current_spread - np.mean(self.X)) / np.std(self.X)
-        num_train_initial = 2184  # TODO: properly.
-        X = self.X[-num_train_initial:]
-        z_score = (current_spread - np.mean(X)) / np.std(X)  # TODO: option.
+        # X = self.X[-self.num_train_initial:] if self.use_fixed_train_size else self.X
+        # z_score = (current_spread - np.mean(X)) / np.std(X)
+        X = self.X[-self.num_train_initial:]
+        z_score = (current_spread - np.mean(X)) / np.std(X)
+
+        # For reporting.
+        z_score_all_data = (current_spread - np.mean(self.X)) / np.std(self.X)
 
         # Open a long portfolio position on the lower boundary of the entry region.
         if z_score <= -self.z_entry:
@@ -124,12 +128,18 @@ class OUPairsTradingStrategy(bt.Strategy):
         elif z_score <= self.z_exit and self.is_short:
             self.exit_market(z_score, exit_mode="exit_short")
 
-        self.df.loc[self.global_count, "S0"] = self.S0[0]
-        self.df.loc[self.global_count, "S1"] = self.S1[0]
-        self.df.loc[self.global_count, "spread"] = self.X[0]
+        self.df.loc[self.global_count, "S0"] = self.S0[-1]
+        self.df.loc[self.global_count, "S1"] = self.S1[-1]
+        self.df.loc[self.global_count, "spread"] = current_spread  # Equiv. X[-1]
+        self.df.loc[self.global_count, "mean_spread"] = np.mean(X)
+        self.df.loc[self.global_count, "mean_spread_all_data"] = np.mean(self.X)
+        self.df.loc[self.global_count, "std_spread"] = np.std(X)
+        self.df.loc[self.global_count, "std_spread_all_data"] = np.std(self.X)
         self.df.loc[self.global_count, "spread_zscore"] = z_score
+        self.df.loc[self.global_count, "spread_zscore_all_data"] = z_score_all_data
 
     def train(self):
+        print("-"*20, "Training")
         S0 = np.array(self.S0)
         S1 = np.array(self.S1)
 
@@ -156,49 +166,61 @@ class OUPairsTradingStrategy(bt.Strategy):
 
     def long_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
-        if self.in_market or self.order_buy is not None or self.order_sell is not None:
+        if self.in_market or self.is_order_pending:
             return
 
         # Buy asset S0 and sell asset S1.
         print(f"{self.global_count} {self.count} LONG PORTFOLIO")
         self.order_buy = self.buy(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_sell = self.sell(data=self.data1, size=self.B, exectype=bt.Order.Market)
-        self.df.loc[self.global_count, "long"] = z_score  # self.X[0]
+        self.df.loc[self.global_count, "long"] = z_score
 
     def short_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
-        if self.in_market or self.order_buy is not None or self.order_sell is not None:
+        if self.in_market or self.is_order_pending:
             return
 
         # Sell asset S0 and buy asset S1.
         print(f"{self.global_count} {self.count} SHORT PORTFOLIO")
         self.order_sell = self.sell(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_buy = self.buy(data=self.data1, size=self.B, exectype=bt.Order.Market)
-        self.df.loc[self.global_count, "short"] = z_score  # self.X[0]
+        self.df.loc[self.global_count, "short"] = z_score
 
     def exit_market(self, z_score, exit_mode):
         # Do nothing if already out of the market.
-        if not self.in_market or self.order_close0 is not None or self.order_close1 is not None:
+        if not self.in_market or self.is_exit_order_pending:
             return
 
         print(f"{self.global_count} {self.count} EXITING MARKET")
         self.order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
         self.order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
-        # self.df.loc[self.global_count, "exit"] = z_score  # self.X[0]
         self.df.loc[self.global_count, exit_mode] = z_score  # self.X[0]
 
     @property
-    def in_market(self):
-        # return self.positionsbyname["df0"].size != 0 or self.positionsbyname["df1"].size != 0
+    def in_market(self) -> bool:
         return self.is_long or self.is_short
 
     @property
-    def is_long(self):
+    def is_long(self) -> bool:
         return self.positionsbyname["df0"].size > 0.0 and self.positionsbyname["df1"].size < 0.0
 
     @property
-    def is_short(self):
+    def is_short(self) -> bool:
         return self.positionsbyname["df0"].size < 0.0 and self.positionsbyname["df1"].size > 0.0
+
+    @property
+    def is_order_pending(self) -> bool:
+        """
+        Returns: True if an order is open to enter positions by buying or selling asset 0 or asset 1.
+        """
+        return self.order_buy is not None or self.order_sell is not None
+
+    @property
+    def is_exit_order_pending(self) -> bool:
+        """
+        Returns: True if an order is open to exit positions by buying or selling asset 0 or asset 1.
+        """
+        return self.order_close0 is not None or self.order_close1 is not None
 
     @staticmethod
     def log(message: str, date_time: datetime) -> None:
