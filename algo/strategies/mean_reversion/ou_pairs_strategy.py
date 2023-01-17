@@ -30,8 +30,12 @@ class OUPairsTradingStrategy(bt.Strategy):
 
         # Initial run conditions
         self.model_trained = False  # Check if the model has been trained at least once.
-        self.count = 0         # Resets.
-        self.global_count = 0  # Never resets.
+        # self.count = 0         # Resets.
+        # self.global_count = 0  # Never resets.
+
+        # Start at -1 because we pre-crement to 0 before anything else happens/
+        self.count = -1         # Resets.
+        self.global_count = -1  # Never resets.
 
         self.num_train_initial = num_train_initial  # Number of data points needed to train the initial model.
         self.num_test = num_test  # Number of data points to elapse before retraining the model.
@@ -62,12 +66,31 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.order_close0 = None
         self.order_close1 = None
 
-        columns = ["S0", "S1", "spread", "spread_zscore", "long", "short", "exit_long", "exit_short"]
+        columns = [
+            "datetime_bt",
+            "S0",
+            "S1",
+            "spread",
+            "spread_zscore",
+            "long",             # Signal to enter long portfolio position.
+            "short",            # Signal to enter short portfolio position.
+            "exit_long",        # Signal to exit long portfolio position.
+            "exit_short",       # Signal to exit short portfolio position.
+            "is_long",          # Track if the strategy is currently long the portfolio.
+            "is_short"          # Track if the strategy is currently short the portfolio.
+        ]
         output_data = np.full((len(self.data.array), len(columns)), np.nan)
         self.df = pd.DataFrame(data=output_data)
         self.df.columns = columns
 
     def next(self):
+        print("Time = ", self.data.datetime.time())
+        print(self.datetime[0])
+        print(self.data.datetime.datetime())
+        # print("--", self.data0.DateTime)
+        print("ord", datetime.fromordinal(int(self.data0_datetime[0])))
+        print("n2d: ", bt.num2date(self.datetime[0]))
+
         self.count += 1
         self.global_count += 1
 
@@ -75,10 +98,8 @@ class OUPairsTradingStrategy(bt.Strategy):
         p0 = self.data0.close[0]
         p1 = self.data1.close[0]
 
-        # Do nothing if at least 1 data stream has missing data.
-        if p0 is None or p1 is None:
-            print(f"NaN: p0={p0} | p1={p1}.")
-            return
+        assert p0 is not None
+        assert p1 is not None
 
         # Store most recent asset prices.
         self.S0.append(p0)
@@ -99,18 +120,29 @@ class OUPairsTradingStrategy(bt.Strategy):
                 and self.order_sell is None:
             self.train()
 
+        self.df.loc[self.global_count, "datetime_bt"] = bt.num2date(self.datetime[0])
+        self.df.loc[self.global_count, "S0_price"] = self.positionsbyname["df0"].price
+        self.df.loc[self.global_count, "S0_size"] = self.positionsbyname["df0"].size
+        self.df.loc[self.global_count, "S1_price"] = self.positionsbyname["df1"].price
+        self.df.loc[self.global_count, "S1_size"] = self.positionsbyname["df1"].size
+        self.df.loc[self.global_count, "cash"] = self.broker.get_cash()
+        self.df.loc[self.global_count, "S0"] = self.S0[-1]
+        self.df.loc[self.global_count, "S1"] = self.S1[-1]
+        self.df.loc[self.global_count, "is_long"] = self.is_long
+        self.df.loc[self.global_count, "is_short"] = self.is_short
+
         # X will have been populated during training.
         current_spread = self.alpha * p0 - self.beta * p1
         self.X = np.append(self.X, current_spread)
 
         # Current z_score.
-        # X = self.X[-self.num_train_initial:] if self.use_fixed_train_size else self.X
-        # z_score = (current_spread - np.mean(X)) / np.std(X)
-        X = self.X[-self.num_train_initial:]
+        X = self.X[-self.num_train_initial:] if self.use_fixed_train_size else self.X
         z_score = (current_spread - np.mean(X)) / np.std(X)
 
-        # For reporting.
-        z_score_all_data = (current_spread - np.mean(self.X)) / np.std(self.X)
+        self.df.loc[self.global_count, "spread"] = current_spread  # Equiv. X[-1]
+        self.df.loc[self.global_count, "spread_mean"] = np.mean(X)
+        self.df.loc[self.global_count, "spread_std"] = np.std(X)
+        self.df.loc[self.global_count, "spread_zscore"] = z_score
 
         # Open a long portfolio position on the lower boundary of the entry region.
         if z_score <= -self.z_entry:
@@ -128,22 +160,15 @@ class OUPairsTradingStrategy(bt.Strategy):
         elif z_score <= self.z_exit and self.is_short:
             self.exit_market(z_score, exit_mode="exit_short")
 
-        self.df.loc[self.global_count, "S0"] = self.S0[-1]
-        self.df.loc[self.global_count, "S1"] = self.S1[-1]
-        self.df.loc[self.global_count, "spread"] = current_spread  # Equiv. X[-1]
-        self.df.loc[self.global_count, "mean_spread"] = np.mean(X)
-        self.df.loc[self.global_count, "mean_spread_all_data"] = np.mean(self.X)
-        self.df.loc[self.global_count, "std_spread"] = np.std(X)
-        self.df.loc[self.global_count, "std_spread_all_data"] = np.std(self.X)
-        self.df.loc[self.global_count, "spread_zscore"] = z_score
-        self.df.loc[self.global_count, "spread_zscore_all_data"] = z_score_all_data
-
     def train(self):
         print("-"*20, "Training")
         S0 = np.array(self.S0)
         S1 = np.array(self.S1)
 
         hp, _ = self.optimiser.optimise(asset1=S0, asset2=S1)
+
+        # Record OU params - fill forward in plots.
+        self.df.loc[self.global_count, "theta"] = hp.ou_params.theta
 
         # Update hedge parameters: (alpha, beta) for use until the next re-training.
         self.alpha = hp.alpha
@@ -163,6 +188,9 @@ class OUPairsTradingStrategy(bt.Strategy):
 
         # Record that the model has been trained at least once.
         self.model_trained = True
+
+        # Record when the model was (re-)trained
+        self.df.loc[self.global_count, "train"] = 1
 
     def long_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
@@ -235,7 +263,27 @@ class OUPairsTradingStrategy(bt.Strategy):
         if order.status == order.Completed:
             if order.isbuy():
                 msg = f"BUY COMPLETE: {order.executed.price}"
+                ex = order.executed
+                d = ex.dt
+                dteos = order.dteos
+                print("dteos = ", bt.num2date(dteos))
                 self.log(msg, order.executed.dt)
+
+                """
+                # TODO: use this to compute which asset this order came from.
+                # TODO: do this for the `else` of this if-else statement as well.
+                #       or can this move up outside of the `if order.isbuy()`?
+                if self.is_long:
+                    asset = ...
+                    quantity = ... # order.size
+
+                elif self.is_short:
+                    asset = ...
+                    quantity = ... # order.size  # self.A or self.B
+
+                self.df[self.global_count, asset] = order.executed.price
+                self.df.loc[self.global_count, "quantity"] = quantity
+                """
 
                 # Allow new orders.
                 if self.order_buy is not None and order.ref == self.order_buy.ref:
@@ -249,6 +297,10 @@ class OUPairsTradingStrategy(bt.Strategy):
 
             else:
                 msg = f"SELL COMPLETE: {order.executed.price}"
+                ex = order.executed
+                d = ex.dt
+                dteos = order.dteos
+                print("dteos = ", bt.num2date(dteos))
                 self.log(msg, order.executed.dt)
 
                 # Allow new orders.

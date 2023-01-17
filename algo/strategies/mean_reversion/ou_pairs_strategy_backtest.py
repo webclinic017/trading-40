@@ -3,6 +3,8 @@ import backtrader.analyzers as btanalyzers
 import backtrader.feeds as btfeeds
 import hydra
 import matplotlib.pyplot as plt
+import pandas as pd
+import pytz
 import yfinance as yf
 from datetime import date, timedelta
 from omegaconf import DictConfig, OmegaConf
@@ -32,23 +34,116 @@ def run(cfg: DictConfig):
     start_date_str = start_date.strftime("%Y-%m-%d")
 
     # Download and cache data.
-    df0 = yf.download(cfg.pairs.ticker0, start=start_date_str, end=end_date_str, interval=interval)
-    df1 = yf.download(cfg.pairs.ticker1, start=start_date_str, end=end_date_str, interval=interval)
-    assert len(df0) > 0
-    assert len(df1) > 0
+    df0_raw = yf.download(cfg.pairs.ticker0, start=start_date_str, end=end_date_str, interval=interval)
+    df1_raw = yf.download(cfg.pairs.ticker1, start=start_date_str, end=end_date_str, interval=interval)
+    assert len(df0_raw) > 0
+    assert len(df1_raw) > 0
+    assert df0_raw.isna().sum().sum() == 0.0
+    assert df1_raw.isna().sum().sum() == 0.0
+
+    # Ensure timestamps align.
+    lsuffix = "_0"
+    rsuffix = "_1"
+    data_aligned_df = df0_raw.join(df1_raw, how="left", lsuffix=lsuffix, rsuffix=rsuffix)
+
+    # Drop rows where entries are missing for either asset.
+    data_aligned_df.dropna(inplace=True)
+    df0 = data_aligned_df.filter(like=lsuffix)
+    df1 = data_aligned_df.filter(like=rsuffix)
+
+    # Restore original names (for backtrader).
+    df0.columns = [col.strip(lsuffix) for col in df0.columns]
+    df1.columns = [col.strip(rsuffix) for col in df1.columns]
+
+    df0.index = df0.index.tz_convert(None)
+    df1.index = df1.index.tz_convert(None)
 
     data_dir = Path.cwd().joinpath("data")
     Path.mkdir(data_dir)
     data_path0 = data_dir.joinpath("df0.csv")
     data_path1 = data_dir.joinpath("df1.csv")
-    df0.to_csv(data_path0)
-    df1.to_csv(data_path1)
+
+    # # df0.index.rename("Datetime", inplace=True)
+    # df0["Datetime"] = df0.index
+    # df0["Time"] = pd.to_datetime(df0["Datetime"]).dt.time
+    # df0["Date"] = pd.to_datetime(df0["Datetime"]).dt.date
+    # # df0.set_index("Date", drop=True)
+    # df0.drop(columns="Datetime", inplace=True)
+    #
+    # df1["Datetime"] = df1.index
+    # df1.loc["Time"] = pd.to_datetime(df1["Datetime"]).dt.time
+    # df1.loc["Date"] = pd.to_datetime(df1["Datetime"]).dt.date
+    # # df1.set_index("Date", drop=True)
+    # df1.drop(columns="Datetime", inplace=True)
+
+    # df0.index.name = "Date"
+    # df1.index.name = "Date"
+    # df0.to_csv(data_path0, index_label="date")
+    # df1.to_csv(data_path1, index_label="date")
+    df0.to_csv(data_path0, index_label="datetime")
+    df1.to_csv(data_path1, index_label="datetime")
 
     cb = bt.Cerebro()
 
     # Add only the TEST data streams to the engine
-    data0 = btfeeds.YahooFinanceCSVData(dataname=data_path0, fromdate=start_date, todate=end_date)
-    data1 = btfeeds.YahooFinanceCSVData(dataname=data_path1, fromdate=start_date, todate=end_date)
+    timezone = "UTC"
+    # data0 = btfeeds.YahooFinanceCSVData(dataname=data_path0, fromdate=start_date, todate=end_date, tz=pytz.timezone(timezone))
+    # data1 = btfeeds.YahooFinanceCSVData(dataname=data_path1, fromdate=start_date, todate=end_date, tz=pytz.timezone(timezone))
+    # data0 = btfeeds.YahooFinanceCSVData(dataname=data_path0, fromdate=start_date, todate=end_date)
+    # data1 = btfeeds.YahooFinanceCSVData(dataname=data_path1, fromdate=start_date, todate=end_date)
+    data0 = btfeeds.YahooFinanceCSVData(
+        dataname=data_path0,
+        fromdate=start_date,
+        todate=end_date,
+        timeframe=bt.TimeFrame.Minutes,
+        # compression=60,  # Minutes -> Hours.
+        tz=pytz.timezone(timezone),
+        dtformat=("%Y-%m-%d %H:%M:%S"),
+        timeformat=("%H:%M:%S"),
+    )
+    data1 = btfeeds.YahooFinanceCSVData(
+        dataname=data_path1,
+        fromdate=start_date,
+        todate=end_date,
+        timeframe=bt.TimeFrame.Minutes,
+        # compression=60,  # Minutes -> Hours.
+        tz=pytz.timezone(timezone),
+        dtformat=("%Y-%m-%d %H:%M:%S"),
+        timeformat=("%H:%M:%S"),
+    )
+    """
+    data0 = btfeeds.GenericCSVData(
+        dataname=data_path0,
+        datetime=0,
+        open=1,
+        high=2,
+        low=3,
+        close=4,
+        volume=5,
+        # time=6,
+        tz=pytz.timezone(timezone),
+        dtformat="%Y-%m-%d %H:%M:%S",
+        tmformat="%H:%M:%S",
+    )
+    data1 = btfeeds.GenericCSVData(
+        dataname=data_path1,
+        datetime=0,
+        open=1,
+        high=2,
+        low=3,
+        close=4,
+        volume=5,
+        # time=6,
+        tz=pytz.timezone(timezone),
+        dtformat="%Y-%m-%d %H:%M:%S",
+        tmformat="%H:%M:%S",
+    )
+    """
+    # data0 = btfeeds.GenericCSVData(dataname=data_path0, fromdate=start_date, todate=end_date)
+    # data1 = btfeeds.GenericCSVData(dataname=data_path1, fromdate=start_date, todate=end_date)
+
+    # data0 = btfeeds.PandasData(dataname=df0)
+    # data1 = btfeeds.PandasData(dataname=df1)
     cb.adddata(data0)
     cb.adddata(data1)
 
@@ -92,9 +187,8 @@ def run(cfg: DictConfig):
     # df.drop(columns=["Unnamed: 0"], inplace=True)
     df.dropna(axis=0, how="all", inplace=True)
 
-    fig3 = plt.figure()
+    fig = plt.figure()
     plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
-    plt.plot(df.index, df["spread_zscore_all_data"], color="black", linestyle="dotted", label="spread_zscore_all_data")
     plt.scatter(df.index, df["long"], color="deepskyblue", marker="^", label="long")
     plt.scatter(df.index, df["short"], color="orange", marker="v", label="short")
     plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")
