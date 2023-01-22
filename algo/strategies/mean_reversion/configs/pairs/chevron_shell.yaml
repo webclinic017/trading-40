@@ -3,3 +3,5 @@ ticker1: "SHEL"  # Shell
 z_entry: 0.5
 z_exit: 0.1
 use_fixed_train_size: True
+multiplier0: 1
+multiplier1: 1

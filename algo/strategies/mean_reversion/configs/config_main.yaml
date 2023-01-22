@@ -1,21 +1,14 @@
 defaults:
   - _self_
   - data: hourly  # [hourly, daily]
-  - pairs: micro_oil_mini_gas
-#  - data: daily  # [hourly, daily]
-#  - pairs: brent_oil_wti_oil
+  - pairs: micro_wti_crude_oil_mini_natural_gas
+#  - pairs: chevron_exxon
 
 broker:
-  cash_initial: 1000.0  # Starting cash balance
-  commission: 0.02      # Percentage commission - broker fees: 0.005 is 0.5%.
+  cash_initial: 100000.0  # Starting cash balance
+#  cash_initial: 1000.0  # Starting cash balance
+#  cash_initial: 100.0  # Starting cash balance
 
 strategy:
   dt: 1.0  # 1/23
   A: 1.0
-
-# Stop hydra from redirecting outputs to `outputs` folder
-#hydra:
-#  output_subdir: null
-#  run:
-#    dir: .
-#

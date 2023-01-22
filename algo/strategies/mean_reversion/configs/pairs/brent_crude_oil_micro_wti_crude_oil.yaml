@@ -1,0 +1,6 @@
+# Motivation: why mix micro and non-micro - because both of these are cash settled.
+ticker0: "BZ=F"  # Brent crude oil (cash)
+ticker1: "MCL=F"  # WTI crude oil (cash)
+z_entry: 1.85
+z_exit: 0.5
+use_fixed_train_size: True

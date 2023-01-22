@@ -1,5 +1,25 @@
-ticker0: "MCL=F"  # Micrp WTI crude oil (cash)
+# Assets
+ticker0: "MCL=F"  # Micro WTI crude oil (cash)
 ticker1: "QG=F"   # Mini natural gas (cash)
+
+# Strategy Parameters
 z_entry: 2.0
 z_exit: 1.0
 use_fixed_train_size: True
+
+# Minimum price fluctuation = 100 barrels.
+# Contract unit = $0.01 per barrel
+# Effective minimum tick per contract = 0.01 ($/barrel) * 100 (barrels) = $1
+multiplier0: 1
+
+# Minimum price fluctuation =  $0.005 per MMBtu.
+# Contract unit = 2,500 million British thermal units (mmBtu).
+# Effective minimum tick per contract = 0.005 ($/mmBtu) * 2500 (mmBtu) = $12.5
+multiplier1: 12.5
+
+margin0: 500   # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
+margin1: 1000  # https://www.cmegroup.com/markets/energy/natural-gas/emini-natural-gas.margins.html
+
+# Futures-like commission: x --> x%.
+commission0: 2.0
+commission1: 2.0

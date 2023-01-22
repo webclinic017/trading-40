@@ -3,12 +3,10 @@
 num_data_full: 14000  # 24 * 730.
 
 # Number of data points needed to train the initial model.
-num_train_initial:  2184  # 24 hours * 7 days * 13 weeks.
-#num_train_initial:  8736  # 24 hours * 7 days * 52 weeks.
-#num_train_initial: 1176
+num_train_initial: 1176
+#num_train_initial: 800
 
 # Number of data points to elapse before retraining the model with the original and new data.
-num_test: 168  # 24 hours * 7 days
-#num_test: 23  # 23 trading hours - simulating retraining overnight. Formalise this idea on index.
+num_test: 24  # 23 trading hours - simulating retraining overnight. Formalise this idea on index.
 
 interval: "1h"

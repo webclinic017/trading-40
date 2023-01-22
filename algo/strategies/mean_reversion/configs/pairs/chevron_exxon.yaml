@@ -1,5 +1,18 @@
+# Assets
 ticker0: "CVX"  # Chevron
 ticker1: "XOM"  # Exxon-Mobil
-z_entry: 0.2
-z_exit: 0.1
+
+# Strategy Parameters
+z_entry: 1.0
+z_exit: 0.5
 use_fixed_train_size: True
+
+# Financing parameters
+multiplier0: 1
+multiplier1: 1
+margin0: None
+margin1: None
+
+# Stock-like percentage commission: 0.00x --> x%.
+commission0: 0.02
+commission1: 0.02

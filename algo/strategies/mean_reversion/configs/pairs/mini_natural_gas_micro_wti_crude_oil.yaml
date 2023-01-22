@@ -1,0 +1,18 @@
+# Assets
+ticker0: "QG=F"   # Mini natural gas (cash)
+ticker1: "MCL=F"  # Micro WTI crude oil (cash)
+
+# Strategy Parameters
+z_entry: 2.0
+z_exit: 1.0
+use_fixed_train_size: True
+
+# Financing parameters
+multiplier0: 2500  # Contract is for 2500 million British thermal units (mmBtu); price is $/mmBtu.
+multiplier1: 100   # Contract is for 100 barrels; price is $/barrel.
+margin0: 1000  # https://www.cmegroup.com/markets/energy/natural-gas/emini-natural-gas.margins.html
+margin1: 500   # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
+
+# Futures-like commission: x --> x%.
+commission0: 2.0
+commission1: 2.0
