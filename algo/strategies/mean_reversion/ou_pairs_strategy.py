@@ -2,22 +2,16 @@ import backtrader as bt
 import numpy as np
 import pandas as pd
 from collections import deque
-from datetime import datetime
-
-from algo.cointegration.augmented_dickey_fuller import adf_stationarity
-from algo.cointegration.engle_granger import engle_granger_bidirectional
 from algo.models.sde.ornstein_uhlenbeck_model_optimisation import OptimiserOU
+from algo.strategies.mean_reversion.base_pairs_strategy import PairsTradingStrategy, pretrade_checks
 
 
-# Important TODOs:
-# [] For now we ignore roll costs.
-# [] Smooth the price data? Hourly might be ok.
-
-
-class OUPairsTradingStrategy(bt.Strategy):
+class OUPairsTradingStrategy(PairsTradingStrategy):
 
     def __init__(
             self,
+            asset0: str,
+            asset1: str,
             z_entry: float,
             z_exit: float,
             num_train_initial: int,
@@ -26,16 +20,18 @@ class OUPairsTradingStrategy(bt.Strategy):
             dt: float,
             A: float,
     ):
-        print(f"Initial Position:\n {self.position}")
+        super().__init__(self)
+
+        # Asset names.
+        self.asset0 = asset0
+        self.asset1 = asset1
 
         # Initial run conditions
         self.model_trained = False  # Check if the model has been trained at least once.
-        # self.count = 0         # Resets.
-        # self.global_count = 0  # Never resets.
 
         # Start at -1 because we pre-crement to 0 before anything else happens/
-        self.count = -1         # Resets.
-        self.global_count = -1  # Never resets.
+        self.step = -1         # Resets.
+        self.global_step = -1  # Never resets.
 
         self.num_train_initial = num_train_initial  # Number of data points needed to train the initial model.
         self.num_test = num_test  # Number of data points to elapse before retraining the model.
@@ -57,14 +53,9 @@ class OUPairsTradingStrategy(bt.Strategy):
             self.S1 = deque(self.S1, maxlen=self.num_train_initial)
 
         # Trading Signals
+        assert z_entry > z_exit
         self.z_entry = z_entry
         self.z_exit = z_exit
-
-        # Tracking
-        self.order_buy = None
-        self.order_sell = None
-        self.order_close0 = None
-        self.order_close1 = None
 
         columns = [
             "datetime_bt",
@@ -72,8 +63,8 @@ class OUPairsTradingStrategy(bt.Strategy):
             "S1",
             "spread",
             "spread_zscore",
-            "long",             # Signal to enter long portfolio position.
-            "short",            # Signal to enter short portfolio position.
+            "enter_long",       # Signal to enter long portfolio position.
+            "enter_short",      # Signal to enter short portfolio position.
             "exit_long",        # Signal to exit long portfolio position.
             "exit_short",       # Signal to exit short portfolio position.
             "is_long",          # Track if the strategy is currently long the portfolio.
@@ -83,16 +74,20 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.df = pd.DataFrame(data=output_data)
         self.df.columns = columns
 
-    def next(self):
-        print("Time = ", self.data.datetime.time())
-        print(self.datetime[0])
-        print(self.data.datetime.datetime())
-        # print("--", self.data0.DateTime)
-        print("ord", datetime.fromordinal(int(self.data0_datetime[0])))
-        print("n2d: ", bt.num2date(self.datetime[0]))
+        # self.is_cointegrated = False
 
-        self.count += 1
-        self.global_count += 1
+    def next(self):
+
+        # if any(order is not None for order in [self.order_buy, self.order_sell, self.order_close0, self.order_close1]):
+        #     print("-"*40)
+        #     print(f"order buy: {self.order_buy}")
+        #     print(f"order sell: {self.order_sell}")
+        #     print(f"order close0: {self.order_close0}")
+        #     print(f"order close1: {self.order_close1}")
+        #     print("-"*40)
+
+        self.step += 1
+        self.global_step += 1
 
         # Current prices of asset0 and asset1.
         p0 = self.data0.close[0]
@@ -106,7 +101,7 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.S1.append(p1)
 
         # Train OU-Model for the first time.
-        if self.count >= self.num_train_initial and not self.model_trained:
+        if self.step >= self.num_train_initial and not self.model_trained:
             self.train()
 
         # Do nothing if there has not been enough data to train the model.
@@ -114,22 +109,24 @@ class OUPairsTradingStrategy(bt.Strategy):
             return
 
         # (Re-)Train OU-Model with updated data as soon as we are not in the market.
-        if self.count >= self.num_test \
+        if self.step >= self.num_test \
                 and not self.in_market \
                 and self.order_buy is None \
                 and self.order_sell is None:
             self.train()
 
-        self.df.loc[self.global_count, "datetime_bt"] = bt.num2date(self.datetime[0])
-        self.df.loc[self.global_count, "S0_price"] = self.positionsbyname["df0"].price
-        self.df.loc[self.global_count, "S0_size"] = self.positionsbyname["df0"].size
-        self.df.loc[self.global_count, "S1_price"] = self.positionsbyname["df1"].price
-        self.df.loc[self.global_count, "S1_size"] = self.positionsbyname["df1"].size
-        self.df.loc[self.global_count, "cash"] = self.broker.get_cash()
-        self.df.loc[self.global_count, "S0"] = self.S0[-1]
-        self.df.loc[self.global_count, "S1"] = self.S1[-1]
-        self.df.loc[self.global_count, "is_long"] = self.is_long
-        self.df.loc[self.global_count, "is_short"] = self.is_short
+        self.df.loc[self.global_step, "datetime_bt"] = bt.num2date(self.datetime[0])
+        # Logging price and size like this for now. Consider that it's not right (realised).
+        self.df.loc[self.global_step, "S0_price"] = self.positionsbyname[self.asset0].price
+        self.df.loc[self.global_step, "S0_size"] = self.positionsbyname[self.asset0].size
+        self.df.loc[self.global_step, "S1_price"] = self.positionsbyname[self.asset1].price
+        self.df.loc[self.global_step, "S1_size"] = self.positionsbyname[self.asset1].size
+        # End.
+        self.df.loc[self.global_step, "cash"] = self.broker.get_cash()
+        self.df.loc[self.global_step, "S0"] = self.S0[-1]
+        self.df.loc[self.global_step, "S1"] = self.S1[-1]
+        self.df.loc[self.global_step, "is_long"] = self.is_long
+        self.df.loc[self.global_step, "is_short"] = self.is_short
 
         # X will have been populated during training.
         current_spread = self.alpha * p0 - self.beta * p1
@@ -139,10 +136,17 @@ class OUPairsTradingStrategy(bt.Strategy):
         X = self.X[-self.num_train_initial:] if self.use_fixed_train_size else self.X
         z_score = (current_spread - np.mean(X)) / np.std(X)
 
-        self.df.loc[self.global_count, "spread"] = current_spread  # Equiv. X[-1]
-        self.df.loc[self.global_count, "spread_mean"] = np.mean(X)
-        self.df.loc[self.global_count, "spread_std"] = np.std(X)
-        self.df.loc[self.global_count, "spread_zscore"] = z_score
+        self.df.loc[self.global_step, "spread"] = current_spread  # Equiv. X[-1]
+        self.df.loc[self.global_step, "spread_mean"] = np.mean(X)
+        self.df.loc[self.global_step, "spread_std"] = np.std(X)
+        self.df.loc[self.global_step, "spread_zscore"] = z_score
+        self.df.loc[self.global_step, "A"] = self.A
+        self.df.loc[self.global_step, "B"] = self.B
+        self.df.loc[self.global_step, "alpha"] = self.alpha
+        self.df.loc[self.global_step, "beta"] = self.beta
+
+        # if not self.is_cointegrated:
+        #     return
 
         # Open a long portfolio position on the lower boundary of the entry region.
         if z_score <= -self.z_entry:
@@ -168,7 +172,7 @@ class OUPairsTradingStrategy(bt.Strategy):
         hp, _ = self.optimiser.optimise(asset1=S0, asset2=S1)
 
         # Record OU params - fill forward in plots.
-        self.df.loc[self.global_count, "theta"] = hp.ou_params.theta
+        self.df.loc[self.global_step, "theta"] = hp.ou_params.theta
 
         # Update hedge parameters: (alpha, beta) for use until the next re-training.
         self.alpha = hp.alpha
@@ -182,15 +186,16 @@ class OUPairsTradingStrategy(bt.Strategy):
         self.X = self.alpha * S0 - self.beta * S1
 
         pretrade_checks(S0, S1, self.X)
+        # self.is_cointegrated = pretrade_checks(S0, S1, self.X)
 
         # Reset counter for ongoing training.
-        self.count = 0
+        self.step = 0
 
         # Record that the model has been trained at least once.
         self.model_trained = True
 
         # Record when the model was (re-)trained
-        self.df.loc[self.global_count, "train"] = 1
+        self.df.loc[self.global_step, "train"] = 1
 
     def long_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
@@ -198,10 +203,10 @@ class OUPairsTradingStrategy(bt.Strategy):
             return
 
         # Buy asset S0 and sell asset S1.
-        print(f"{self.global_count} {self.count} LONG PORTFOLIO")
+        print(f"{self.global_step} {self.step} LONG PORTFOLIO")
         self.order_buy = self.buy(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_sell = self.sell(data=self.data1, size=self.B, exectype=bt.Order.Market)
-        self.df.loc[self.global_count, "long"] = z_score
+        self.df.loc[self.global_step, "enter_long"] = z_score
 
     def short_portfolio(self, z_score):
         # Do nothing if already in the market or if orders are already open.
@@ -209,81 +214,51 @@ class OUPairsTradingStrategy(bt.Strategy):
             return
 
         # Sell asset S0 and buy asset S1.
-        print(f"{self.global_count} {self.count} SHORT PORTFOLIO")
+        print(f"{self.global_step} {self.step} SHORT PORTFOLIO")
         self.order_sell = self.sell(data=self.data0, size=self.A, exectype=bt.Order.Market)
         self.order_buy = self.buy(data=self.data1, size=self.B, exectype=bt.Order.Market)
-        self.df.loc[self.global_count, "short"] = z_score
+        self.df.loc[self.global_step, "enter_short"] = z_score
 
     def exit_market(self, z_score, exit_mode):
         # Do nothing if already out of the market.
         if not self.in_market or self.is_exit_order_pending:
             return
 
-        print(f"{self.global_count} {self.count} EXITING MARKET")
+        print(f"{self.global_step} {self.step} EXITING MARKET")
         self.order_close0 = self.close(data=self.data0, exectype=bt.Order.Market)
         self.order_close1 = self.close(data=self.data1, exectype=bt.Order.Market)
-        self.df.loc[self.global_count, exit_mode] = z_score  # self.X[0]
-
-    @property
-    def in_market(self) -> bool:
-        return self.is_long or self.is_short
-
-    @property
-    def is_long(self) -> bool:
-        return self.positionsbyname["df0"].size > 0.0 and self.positionsbyname["df1"].size < 0.0
-
-    @property
-    def is_short(self) -> bool:
-        return self.positionsbyname["df0"].size < 0.0 and self.positionsbyname["df1"].size > 0.0
-
-    @property
-    def is_order_pending(self) -> bool:
-        """
-        Returns: True if an order is open to enter positions by buying or selling asset 0 or asset 1.
-        """
-        return self.order_buy is not None or self.order_sell is not None
-
-    @property
-    def is_exit_order_pending(self) -> bool:
-        """
-        Returns: True if an order is open to exit positions by buying or selling asset 0 or asset 1.
-        """
-        return self.order_close0 is not None or self.order_close1 is not None
-
-    @staticmethod
-    def log(message: str, date_time: datetime) -> None:
-        date_time = bt.num2date(date_time)
-        print(f"{date_time.isoformat()}", message)
+        self.df.loc[self.global_step, exit_mode] = z_score
 
     def notify_order(self, order):
         if order.status in [bt.Order.Submitted, bt.Order.Accepted]:
             # Wait for further notifications.
             return
 
-        if order.status == order.Completed:
+        elif order.status in [order.Expired, order.Canceled, order.Margin]:
+            self.log(f"{order.Status[order.status]}", order)
+
+        elif order.status == order.Completed:
+
+            if (order.isbuy() and self.is_long) or (order.issell() and self.is_short):
+                asset = "S0"
+
+            if (order.isbuy() and self.is_short) or (order.issell() and self.is_long):
+                asset = "S1"
+
+            # TODO: breaks on exit when we are neither long nor short.
+            # Will want to log this, though. Need to know the per trade PnL.
+            # Track each trade entry to exit via IDs?
+
+            # Log the execution stats for post-trade analysis. Note: position info is updated by backtrader.
+            """
+            self.df.loc[self.global_step, "datetime_bt"] = bt.num2date(order.executed.dt)
+            self.df.loc[self.global_step, f"{asset}_price"] = order.executed.price
+            self.df.loc[self.global_step, f"{asset}_size"] = order.executed.size
+            self.df.loc[self.global_step, f"{asset}_value"] = self.df.loc[self.global_step, f"{asset}_price"] * self.df.loc[self.global_step, f"{asset}_size"]
+            """
+
             if order.isbuy():
-                msg = f"BUY COMPLETE: {order.executed.price}"
-                ex = order.executed
-                d = ex.dt
-                dteos = order.dteos
-                print("dteos = ", bt.num2date(dteos))
-                self.log(msg, order.executed.dt)
-
-                """
-                # TODO: use this to compute which asset this order came from.
-                # TODO: do this for the `else` of this if-else statement as well.
-                #       or can this move up outside of the `if order.isbuy()`?
-                if self.is_long:
-                    asset = ...
-                    quantity = ... # order.size
-
-                elif self.is_short:
-                    asset = ...
-                    quantity = ... # order.size  # self.A or self.B
-
-                self.df[self.global_count, asset] = order.executed.price
-                self.df.loc[self.global_count, "quantity"] = quantity
-                """
+                self.log("BUY COMPLETE", order)
 
                 # Allow new orders.
                 if self.order_buy is not None and order.ref == self.order_buy.ref:
@@ -295,13 +270,8 @@ class OUPairsTradingStrategy(bt.Strategy):
                 elif self.order_close1 is not None and order.ref == self.order_close1.ref:
                     self.order_close1 = None
 
-            else:
-                msg = f"SELL COMPLETE: {order.executed.price}"
-                ex = order.executed
-                d = ex.dt
-                dteos = order.dteos
-                print("dteos = ", bt.num2date(dteos))
-                self.log(msg, order.executed.dt)
+            elif order.issell():
+                self.log("SELL COMPLETE", order)
 
                 # Allow new orders.
                 if self.order_sell is not None and order.ref == self.order_sell.ref:
@@ -312,17 +282,3 @@ class OUPairsTradingStrategy(bt.Strategy):
 
                 elif self.order_close1 is not None and order.ref == self.order_close1.ref:
                     self.order_close1 = None
-
-        elif order.status in [order.Expired, order.Canceled, order.Margin]:
-            self.log(f"{order.Status[order.status]}", order.executed.dt)
-
-
-def pretrade_checks(S0, S1, spread) -> None:
-    results = {
-        # Test for stationarity in the actual spread series generated by the OU Model.
-        "adf_c": adf_stationarity(spread, trend="c"),
-        # Test for cointegration in the underlying asset price series.
-        # "engle_granger_c": engle_granger_bidirectional(S0, S1, trend="c"),
-    }
-
-    print(results)
