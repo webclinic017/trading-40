@@ -3,7 +3,6 @@ import backtrader.analyzers as btanalyzers
 import backtrader.feeds as btfeeds
 import hydra
 import matplotlib.pyplot as plt
-import pandas as pd
 import pytz
 import yfinance as yf
 from datetime import date, timedelta
@@ -55,43 +54,23 @@ def run(cfg: DictConfig):
     df0.columns = [col.strip(lsuffix) for col in df0.columns]
     df1.columns = [col.strip(rsuffix) for col in df1.columns]
 
+    # Convert timezones (to UTC).
     df0.index = df0.index.tz_convert(None)
     df1.index = df1.index.tz_convert(None)
 
+    # Save raw data for post-trade analysis.
     data_dir = Path.cwd().joinpath("data")
     Path.mkdir(data_dir)
     data_path0 = data_dir.joinpath("df0.csv")
     data_path1 = data_dir.joinpath("df1.csv")
-
-    # # df0.index.rename("Datetime", inplace=True)
-    # df0["Datetime"] = df0.index
-    # df0["Time"] = pd.to_datetime(df0["Datetime"]).dt.time
-    # df0["Date"] = pd.to_datetime(df0["Datetime"]).dt.date
-    # # df0.set_index("Date", drop=True)
-    # df0.drop(columns="Datetime", inplace=True)
-    #
-    # df1["Datetime"] = df1.index
-    # df1.loc["Time"] = pd.to_datetime(df1["Datetime"]).dt.time
-    # df1.loc["Date"] = pd.to_datetime(df1["Datetime"]).dt.date
-    # # df1.set_index("Date", drop=True)
-    # df1.drop(columns="Datetime", inplace=True)
-
-    # df0.index.name = "Date"
-    # df1.index.name = "Date"
-    # df0.to_csv(data_path0, index_label="date")
-    # df1.to_csv(data_path1, index_label="date")
     df0.to_csv(data_path0, index_label="datetime")
     df1.to_csv(data_path1, index_label="datetime")
 
     cb = bt.Cerebro()
 
-    # Add only the TEST data streams to the engine
     timezone = "UTC"
-    # data0 = btfeeds.YahooFinanceCSVData(dataname=data_path0, fromdate=start_date, todate=end_date, tz=pytz.timezone(timezone))
-    # data1 = btfeeds.YahooFinanceCSVData(dataname=data_path1, fromdate=start_date, todate=end_date, tz=pytz.timezone(timezone))
-    # data0 = btfeeds.YahooFinanceCSVData(dataname=data_path0, fromdate=start_date, todate=end_date)
-    # data1 = btfeeds.YahooFinanceCSVData(dataname=data_path1, fromdate=start_date, todate=end_date)
     data0 = btfeeds.YahooFinanceCSVData(
+        name=cfg.pairs.ticker0,
         dataname=data_path0,
         fromdate=start_date,
         todate=end_date,
@@ -102,6 +81,7 @@ def run(cfg: DictConfig):
         timeformat=("%H:%M:%S"),
     )
     data1 = btfeeds.YahooFinanceCSVData(
+        name=cfg.pairs.ticker1,
         dataname=data_path1,
         fromdate=start_date,
         todate=end_date,
@@ -111,45 +91,14 @@ def run(cfg: DictConfig):
         dtformat=("%Y-%m-%d %H:%M:%S"),
         timeformat=("%H:%M:%S"),
     )
-    """
-    data0 = btfeeds.GenericCSVData(
-        dataname=data_path0,
-        datetime=0,
-        open=1,
-        high=2,
-        low=3,
-        close=4,
-        volume=5,
-        # time=6,
-        tz=pytz.timezone(timezone),
-        dtformat="%Y-%m-%d %H:%M:%S",
-        tmformat="%H:%M:%S",
-    )
-    data1 = btfeeds.GenericCSVData(
-        dataname=data_path1,
-        datetime=0,
-        open=1,
-        high=2,
-        low=3,
-        close=4,
-        volume=5,
-        # time=6,
-        tz=pytz.timezone(timezone),
-        dtformat="%Y-%m-%d %H:%M:%S",
-        tmformat="%H:%M:%S",
-    )
-    """
-    # data0 = btfeeds.GenericCSVData(dataname=data_path0, fromdate=start_date, todate=end_date)
-    # data1 = btfeeds.GenericCSVData(dataname=data_path1, fromdate=start_date, todate=end_date)
-
-    # data0 = btfeeds.PandasData(dataname=df0)
-    # data1 = btfeeds.PandasData(dataname=df1)
     cb.adddata(data0)
     cb.adddata(data1)
 
     # Add the trading strategy to the engine
     cb.addstrategy(
         OUPairsTradingStrategy,
+        asset0=cfg.pairs.ticker0,
+        asset1=cfg.pairs.ticker1,
         z_entry=cfg.pairs.z_entry,
         z_exit=cfg.pairs.z_exit,
         num_train_initial=cfg.data.num_train_initial,
@@ -164,7 +113,11 @@ def run(cfg: DictConfig):
     cb.addanalyzer(btanalyzers.SharpeRatio, _name="sharpe_ratio_annual", annualize=True, timeframe=bt.TimeFrame.Minutes, compression=60)  # Workaround for hourly data.
 
     cb.broker.setcash(cfg.broker.cash_initial)
-    cb.broker.setcommission(cfg.broker.commission)
+    margin0 = cfg.pairs.margin0 if cfg.pairs.margin0 != "None" else None
+    margin1 = cfg.pairs.margin1 if cfg.pairs.margin1 != "None" else None
+    cb.broker.setcommission(commission=cfg.pairs.commission0, margin=margin0, mult=cfg.pairs.multiplier0, name=cfg.pairs.ticker0)
+    cb.broker.setcommission(commission=cfg.pairs.commission1, margin=margin1, mult=cfg.pairs.multiplier1, name=cfg.pairs.ticker1)
+
     initial_portfolio_value = cb.broker.getvalue()
     initial_cash = cb.broker.getcash()
 
@@ -184,13 +137,12 @@ def run(cfg: DictConfig):
     df.to_csv("plot_data.csv")
 
     # Drop the rows of all NaNs, keep individual (row,col) NaN entries.
-    # df.drop(columns=["Unnamed: 0"], inplace=True)
     df.dropna(axis=0, how="all", inplace=True)
 
     fig = plt.figure()
     plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
-    plt.scatter(df.index, df["long"], color="deepskyblue", marker="^", label="long")
-    plt.scatter(df.index, df["short"], color="orange", marker="v", label="short")
+    plt.scatter(df.index, df["enter_long"], color="deepskyblue", marker="^", label="long")
+    plt.scatter(df.index, df["enter_short"], color="orange", marker="v", label="short")
     plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")
     plt.scatter(df.index, df["exit_short"], color="darkorange", marker="X", label="exit_short")
     xmin = df.index[0]
