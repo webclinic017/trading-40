@@ -89,7 +89,7 @@ class OptimiserOU(Optimiser):
         mu = -np.log(phi) / dt
 
         assert phi < 1.0, "Plot ln(x), e.g. Wolfram."
-        assert mu > 0.0, "Speed of MR must be postive."
+        assert mu > 0.0, "Speed of MR must be positive."
 
         # Volatility parameter: sigma. Cleaner to find sigma_sq first, then take sqrt.
         a = n * (1.0 - np.exp(-2.0 * mu * dt))
