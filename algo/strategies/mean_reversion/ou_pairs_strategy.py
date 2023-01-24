@@ -202,6 +202,66 @@ class OUPairsTradingStrategy(PairsTradingStrategy):
         if self.in_market or self.is_order_pending:
             return
 
+        # Check cash
+        cash = self.broker.get_cash()
+
+        # Check amount of risk to put on (ratio/percentage of cash)
+        risk_per_trade = 0.02  # 2%
+
+        # Working capital.
+        bet = cash * risk_per_trade
+
+        # Target ratio of dollars spent on each asset, given by OU Process.
+        r = self.A / self.B
+
+        p0 = self.S0[-1]
+        p1 = self.S1[-1]
+
+        n0 = (r / (1 + r)) * (bet / p0)
+        n1 = (1 / (1 + r)) * (bet / p1)
+
+        # Idealised if fractional contracts are allowed.
+        bet_ideal = n0 * p0 + n1 * p1
+        ratio_ideal = (n0 * p0) / (n1 * p1)
+
+        # TODO: this is for futures contracts. Stocks can be fractional - no need to constrain!
+        # E.g. if need_rounding..., else ... .
+        n0_actual = round(n0)
+        n1_actual = round(n1)
+        bet_actual = n0_actual * p0 + n1_actual * p1
+        ratio_actual = (n0_actual * p0) / (n1_actual * p1)
+
+        alpha = self.alpha
+        beta = self.beta
+
+        print("Longing...")
+
+        # Compare to analytic
+        print("Analytic Solution")
+        ratio_ideal_pc_diff = 100.0 * (r - ratio_ideal) / r
+        print(f"\tratio_pc_diff = {ratio_ideal_pc_diff:.2f}")
+
+        bet_ideal_pc_diff = 100.0 * (bet - bet_ideal) / bet
+        print(f"\tbet_ideal_pc_diff = {bet_ideal_pc_diff:.2f}")
+
+        print("Actual Solution")
+        ratio_pc_diff = 100.0 * (r - ratio_actual) / r
+        print(f"\tratio_actual_pc_diff = {ratio_pc_diff:.2f}")
+
+        bet_pc_diff = 100.0 * (bet - bet_actual) / bet
+        print(f"\tbet_actual_pc_diff = {bet_pc_diff:.2f}")
+
+        print("OU Comparison")
+        # ou_vs_ideal_pc_diff = 100.0 * ((alpha / beta) - (n0 / n1)) / (alpha / beta)
+        # print(f"\tou_vs_ideal_pc_diff = {ou_vs_ideal_pc_diff:.2f}")
+        #
+        # ou_vs_actual_pc_diff = 100.0 * ((alpha / beta) - (n0_actual / n1_actual)) / (alpha / beta)
+        # print(f"\tou_vs_actual_pc_diff = {ou_vs_actual_pc_diff:.2f}")
+        print(f"\tA/B = {self.A/self.B:.2f}, alpha/beta = {alpha/beta:.2f}, n0_actual/n1_actual = {n0_actual/n1_actual:.2f}, n0_ideal/n1_ideal = {n0/n1:.2f}")
+
+        # OU LL with realised parameters.
+        # Cointegration tests.
+
         # Buy asset S0 and sell asset S1.
         print(f"{self.global_step} {self.step} LONG PORTFOLIO")
         self.order_buy = self.buy(data=self.data0, size=self.A, exectype=bt.Order.Market)
@@ -212,6 +272,57 @@ class OUPairsTradingStrategy(PairsTradingStrategy):
         # Do nothing if already in the market or if orders are already open.
         if self.in_market or self.is_order_pending:
             return
+
+        # Maximum risk per trade pair (percentage of cash).
+        risk_per_trade = 0.02  # 2%
+
+        # Maximum capital to risk on a trade, defined as a long and a short pair, since both borrowed on margin.
+        bet = self.broker.get_cash() * risk_per_trade
+
+        # Target ratio of dollars spent on each asset, computed by OU Process.
+        r = self.A / self.B
+
+        # Current asset prices.
+        p0 = self.S0[-1]
+        p1 = self.S1[-1]
+
+        # Ideal quantity of each asset to maintain OU-generated ratio, with total spend as near to `bet` as possible.
+        n0 = (r/(1+r)) * (bet/p0)
+        n1 = (1/(1+r)) * (bet/p1)
+
+        # Realised values if fractional contracts are allowed.
+        bet_actual = n0 * p0 + n1 * p1
+        ratio_actual = (n0 * p0) / (n1 * p1)
+
+        msg = f"Target \tratio = {r:.3f}, bet = {bet:.3f} \nActual \tratio = {ratio_actual:.3f}, bet = {bet_actual:.2f}, n0 = {n0:.2f}, n1 = {n1:.2f}"
+        ou_msg = f"\tA/B = {self.A/self.B:.3f}, alpha/beta = {self.alpha/self.beta:.3}, n0/n1 = {n0/n1:.3f}"
+
+        # TODO: this is for futures contracts. Stocks can be fractional - no need to constrain!
+        integer_quantities = True
+
+        if integer_quantities:
+            n0 = round(n0)
+            n1 = round(n1)
+            bet_actual = n0 * p0 + n1 * p1
+            ratio_actual = (n0 * p0) / (n1 * p1)
+
+            msg += f"\nRounded ratio = {ratio_actual:.3f}, bet = {bet_actual:.2f}, n0 = {n0:.2f}, n1 = {n1:.2f}"
+            ou_msg += f", n0_round/n1_round = {n0/n1:.3f}"
+
+        # Compare to analytic
+        # print("Analytic Solution")
+        # ratio_ideal_pc_diff = 100.0 * (r - ratio_ideal) / r
+        # print(f"\tratio_pc_diff = {ratio_ideal_pc_diff:.2f}")
+        #
+        # bet_ideal_pc_diff = 100.0 * (bet - bet_ideal) / bet
+        # print(f"\tbet_ideal_pc_diff = {bet_ideal_pc_diff:.2f}")
+
+        # print("OU Comparison")
+        print(msg)
+        print(ou_msg)
+
+        # OU LL with realised parameters.
+        # Cointegration tests.
 
         # Sell asset S0 and buy asset S1.
         print(f"{self.global_step} {self.step} SHORT PORTFOLIO")
