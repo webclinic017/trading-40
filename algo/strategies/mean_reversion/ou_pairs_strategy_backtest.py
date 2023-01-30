@@ -101,6 +101,7 @@ def run(cfg: DictConfig):
         asset1=cfg.pairs.ticker1,
         z_entry=cfg.pairs.z_entry,
         z_exit=cfg.pairs.z_exit,
+        risk_per_trade=cfg.risk_per_trade,
         num_train_initial=cfg.data.num_train_initial,
         num_test=cfg.data.num_test,
         use_fixed_train_size=cfg.pairs.use_fixed_train_size,
@@ -109,8 +110,15 @@ def run(cfg: DictConfig):
     )
 
     cb.addanalyzer(btanalyzers.Returns, _name="returns")
-    cb.addanalyzer(btanalyzers.SharpeRatio, _name="sharpe_ratio", annualize=False, timeframe=bt.TimeFrame.Minutes, compression=60)  # Workaround for hourly data.
-    cb.addanalyzer(btanalyzers.SharpeRatio, _name="sharpe_ratio_annual", annualize=True, timeframe=bt.TimeFrame.Minutes, compression=60)  # Workaround for hourly data.
+    cb.addanalyzer(
+        btanalyzers.SharpeRatio,
+        _name="sharpe_ratio_annual",
+        annualize=True,
+        timeframe=bt.TimeFrame.Minutes,
+        compression=60,  # Workaround for hourly data.
+        riskfreerate=cfg.risk_free_rate,
+        convertrate=True,
+    )
 
     cb.broker.setcash(cfg.broker.cash_initial)
     margin0 = cfg.pairs.margin0 if cfg.pairs.margin0 != "None" else None
@@ -126,7 +134,6 @@ def run(cfg: DictConfig):
 
     # Results.
     print(f"Returns: {strategy.analyzers.returns.get_analysis()}")
-    print(f"Sharpe Ratio: {strategy.analyzers.sharpe_ratio.get_analysis()}")
     print(f"Sharpe Ratio Annualised: {strategy.analyzers.sharpe_ratio_annual.get_analysis()}")
     print(f"Starting Portfolio Value: {initial_portfolio_value}")
     print(f"Final Portfolio Value: {cb.broker.getvalue()}")
@@ -139,22 +146,22 @@ def run(cfg: DictConfig):
     # Drop the rows of all NaNs, keep individual (row,col) NaN entries.
     df.dropna(axis=0, how="all", inplace=True)
 
-    fig = plt.figure()
-    plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
-    plt.scatter(df.index, df["enter_long"], color="deepskyblue", marker="^", label="long")
-    plt.scatter(df.index, df["enter_short"], color="orange", marker="v", label="short")
-    plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")
-    plt.scatter(df.index, df["exit_short"], color="darkorange", marker="X", label="exit_short")
-    xmin = df.index[0]
-    xmax = df.index[-1]
-    plt.hlines([-cfg.pairs.z_entry, cfg.pairs.z_entry], xmin=xmin, xmax=xmax, color="forestgreen", linestyle="dashed", label="z_entry")
-    plt.hlines([-cfg.pairs.z_exit, cfg.pairs.z_exit], xmin=xmin, xmax=xmax, color="red", linestyle="dashed", label="z_exit")
-    plt.title("Spread - Entries and Exits")
-    plt.xlabel(f"Time Step ({interval})")
-    plt.ylabel("Normalised Spread, Z")
-    plt.legend()
-    plt.savefig("spread_entries_exits.png")
-    plt.show()
+    # fig = plt.figure()
+    # plt.plot(df.index, df["spread_zscore"], color="black", label="spread_zscore")
+    # plt.scatter(df.index, df["enter_long"], color="deepskyblue", marker="^", label="long")
+    # plt.scatter(df.index, df["enter_short"], color="orange", marker="v", label="short")
+    # plt.scatter(df.index, df["exit_long"], color="blue", marker="X", label="exit_long")
+    # plt.scatter(df.index, df["exit_short"], color="darkorange", marker="X", label="exit_short")
+    # xmin = df.index[0]
+    # xmax = df.index[-1]
+    # plt.hlines([-cfg.pairs.z_entry, cfg.pairs.z_entry], xmin=xmin, xmax=xmax, color="forestgreen", linestyle="dashed", label="z_entry")
+    # plt.hlines([-cfg.pairs.z_exit, cfg.pairs.z_exit], xmin=xmin, xmax=xmax, color="red", linestyle="dashed", label="z_exit")
+    # plt.title("Spread - Entries and Exits")
+    # plt.xlabel(f"Time Step ({interval})")
+    # plt.ylabel("Normalised Spread, Z")
+    # plt.legend()
+    # plt.savefig("spread_entries_exits.png")
+    # plt.show()
 
     cb.plot()
 
