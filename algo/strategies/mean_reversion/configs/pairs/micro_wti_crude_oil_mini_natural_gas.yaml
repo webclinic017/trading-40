@@ -3,7 +3,7 @@ ticker0: "MCL=F"  # Micro WTI crude oil (cash)
 ticker1: "QG=F"   # Mini natural gas (cash)
 
 # Strategy Parameters
-z_entry: 2.0
+z_entry: 2.0  # 2.0
 z_exit: 1.0
 use_fixed_train_size: True
 

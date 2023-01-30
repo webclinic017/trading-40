@@ -1,0 +1,27 @@
+# The purpose of this config is to operate as a test case.
+# Using the same asset for each leg of the pair:
+#  1. A perfect hedge should be possible.
+#  2. Hedge ratios should be 1 or -1 for long/short.
+#  3. No trades should be entered into.
+#    a) There should not be a spread, certainly not with enough divergence.
+#    b) It should be computed that the divergence that does exist (due to imperfections)
+#       is not enough to overcome the commission, and so a 2nd fail-safe should prevent a trade.
+
+# Assets
+ticker0: "MCL=F"  # Micro WTI crude oil (cash)
+ticker1: "MCL=F"  # Micro WTI crude oil (cash)
+
+# Strategy Parameters
+z_entry: 2.0
+z_exit: 1.0
+use_fixed_train_size: True
+
+multiplier0: 1
+multiplier1: 1
+
+margin0: 500   # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
+margin1: 500   # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
+
+# Futures-like commission: x --> x%.
+commission0: 2.0
+commission1: 2.0

@@ -1,0 +1,15 @@
+# Idealised config for testing.
+ticker0: "MCL=F"
+ticker1: "QG=F"
+
+z_entry: 2.0
+z_exit: 1.0
+use_fixed_train_size: True
+
+multiplier0: 1
+multiplier1: 1
+margin0: 1
+margin1: 1
+
+commission0: 0.0
+commission1: 0.0

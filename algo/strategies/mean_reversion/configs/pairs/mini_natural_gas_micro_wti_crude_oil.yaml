@@ -7,9 +7,16 @@ z_entry: 2.0
 z_exit: 1.0
 use_fixed_train_size: True
 
-# Financing parameters
-multiplier0: 2500  # Contract is for 2500 million British thermal units (mmBtu); price is $/mmBtu.
-multiplier1: 100   # Contract is for 100 barrels; price is $/barrel.
+# Minimum price fluctuation =  $0.005 per MMBtu.
+# Contract unit = 2,500 million British thermal units (mmBtu).
+# Effective minimum tick per contract = 0.005 ($/mmBtu) * 2500 (mmBtu) = $12.5
+multiplier0: 12.5
+
+# Minimum price fluctuation = 100 barrels.
+# Contract unit = $0.01 per barrel
+# Effective minimum tick per contract = 0.01 ($/barrel) * 100 (barrels) = $1
+multiplier1: 1
+
 margin0: 1000  # https://www.cmegroup.com/markets/energy/natural-gas/emini-natural-gas.margins.html
 margin1: 500   # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
 
