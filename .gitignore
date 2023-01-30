@@ -3,3 +3,5 @@
 *.idea
 __pycache__
 .DS_Store
+*/outputs/*
+algo/strategies/mean_reversion/data/*
