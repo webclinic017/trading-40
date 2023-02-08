@@ -1,5 +1,7 @@
 import abc
 import math
+import warnings
+
 import numpy as np
 import pandas as pd
 from typing import Tuple
@@ -33,9 +35,7 @@ class OptimiserOU(Optimiser):
         self.A = A
         self.dt = dt
 
-    def optimise(
-            self, asset1, asset2, optimisation_metric: str = "log_likelihood",
-    ) -> Tuple[HedgeParamsOU, ModelParamsOUCandidates]:
+    def optimise(self, asset1, asset2, optimisation_metric: str = "log_likelihood") -> Tuple[HedgeParamsOU, ModelParamsOUCandidates]:
         """
         Args:
             optimisation_metric: ["log_likelihood", "mu"]
@@ -86,10 +86,13 @@ class OptimiserOU(Optimiser):
 
         # Speed of mean reversion: mu
         phi = (X_xy - theta*(X_x + X_y) + n*(theta**2)) / (X_xx - 2*theta*X_x + n*(theta**2))
+
         mu = -np.log(phi) / dt
 
-        assert phi < 1.0, "Plot ln(x), e.g. Wolfram."
-        assert mu > 0.0, "Speed of MR must be positive."
+        # assert phi < 1.0, "Plot ln(x), e.g. Wolfram."
+        # assert mu > 0.0, "Speed of MR must be positive."  # TMP: turn back on!!!!
+        # if mu < 0.0:
+        #     warnings.warn(f"mu = {mu}, should be > 0.0.")
 
         # Volatility parameter: sigma. Cleaner to find sigma_sq first, then take sqrt.
         a = n * (1.0 - np.exp(-2.0 * mu * dt))
@@ -120,8 +123,18 @@ class OptimiserOU(Optimiser):
     def _create_candidates(self, asset1, asset2):
         start = 0.001
         end = 1.0
+        # end = 100.0
         num = int(1 / start)
-        B_candidates = np.linspace(start, end, num)
+        # B_candidates = np.linspace(start, end, num)
+
+        # TMP
+        # B_candidates = list(range(1, 100))  # For now: constraining to 100 either way - 1 cent on the dollar.
+        # B_candidates += [1/B for B in B_candidates]
+        # B_candidates += [0]
+        # B_candidates = sorted(B_candidates)
+
+        # np.linspace(0, 1.0, 101)  # To allow for 0.
+        B_candidates = np.concatenate([np.linspace(0.01, 1.0, 100), np.arange(2, 101)])
 
         alpha = self.A / asset1[0]
 
@@ -137,6 +150,13 @@ class OptimiserOU(Optimiser):
             model_params = self.model_params_ou(x)
             model_params.B = B
             model_params_candidates.append(model_params)
+
+        # TMP
+        # import matplotlib.pyplot as plt
+
+        # lls = [params.log_likelihood for params in model_params_candidates]
+        # plt.plot(B_candidates, lls)
+        # plt.show()
 
         return ModelParamsOUCandidates(model_params=model_params_candidates)
 
