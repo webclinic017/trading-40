@@ -1,12 +1,11 @@
-#num_data_full: 730  # 730 days is the max, includes today.
-num_data_full: 2000
+#num_data_full: 2000
 
 # Number of data points needed to train the initial model.
-#num_train_initial:  252
-num_train_initial:  800
+num_train_initial:  252
 
 # Number of data points to elapse before retraining the model with the original and new data
-num_test: 60  # 23
-#num_test: 100  # 23
+#num_test: 7  # 1 week.
+#num_test: 14
+num_test: 23  # Contract length.
 
 interval: "1d"

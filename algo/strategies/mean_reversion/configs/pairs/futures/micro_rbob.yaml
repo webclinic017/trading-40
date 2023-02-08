@@ -1,0 +1,7 @@
+# RBOB using full contract ticker, with micro margins and spec. NOTE: MRB has low volume.
+ticker: "RB=F"
+
+multiplier: 4200  # https://www.cmegroup.com/markets/energy/refined-products/micro-rbob-gasoline.contractSpecs.html
+margin: 770   # https://www.cmegroup.com/markets/energy/refined-products/micro-rbob-gasoline.margins.html
+
+expiry: "b_month_end"  # RBOB Specs: trading terminates on the last business day of the month prior to the contract month.

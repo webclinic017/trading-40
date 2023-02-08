@@ -1,0 +1,14 @@
+# Assets
+asset0: "futures/micro_wti_oil.yaml"
+asset1: "futures/micro_rbob.yaml"
+
+# Start Date: note the Micros started on `2021-07-12`.
+start_date: "2016-01-01"
+
+# Strategy Parameters
+z_entry: 2.8  # 3.2  # 2.0  # 1.78
+z_exit: 1.71  # 1.0  # 1.71
+use_fixed_train_size: True
+
+# Futures-like commission: x --> x%.
+commission: 2.0

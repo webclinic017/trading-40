@@ -11,6 +11,9 @@
 ticker0: "MCL=F"  # Micro WTI crude oil (cash)
 ticker1: "MCL=F"  # Micro WTI crude oil (cash)
 
+# Start Date: note the Micros started on `2021-07-12`.
+start_data: "2021-07-12"
+
 # Strategy Parameters
 z_entry: 2.0
 z_exit: 1.0

@@ -1,0 +1,23 @@
+# Assets
+ticker0: "QG=F"   # Mini natural gas (cash)
+ticker1: "RB=F"   # RBOB (full contract ticker, mini margins).
+
+start_date: "2017-01-01"
+
+# Strategy Parameters
+z_entry: 2.0
+z_exit: 1.0
+use_fixed_train_size: True
+
+# Minimum price fluctuation =  $0.005 per MMBtu.
+# Contract unit = 2,500 million British thermal units (mmBtu).
+# Effective minimum tick per contract = 0.005 ($/mmBtu) * 2500 (mmBtu) = $12.5
+multiplier0: 12.5
+multiplier1: 0.42  # https://www.cmegroup.com/markets/energy/refined-products/micro-rbob-gasoline.contractSpecs.html
+
+margin0: 1000  # https://www.cmegroup.com/markets/energy/natural-gas/emini-natural-gas.margins.html
+margin1: 770   # https://www.cmegroup.com/markets/energy/refined-products/micro-rbob-gasoline.margins.html
+
+# Futures-like commission: x --> x%.
+commission0: 2.0
+commission1: 2.0

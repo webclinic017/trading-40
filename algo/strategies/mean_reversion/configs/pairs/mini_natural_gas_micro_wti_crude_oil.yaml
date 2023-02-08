@@ -1,6 +1,12 @@
+# Note on MCL=F:
+# Micro Crude Oil Futures started on 12th-July-2021.
+# Price series is equivalent to CL=F, but CL has better data.
+# Here, we can use the `CL=F` symbol and still trade `micro` crude via appropriate
+# choices of `multiplier` and `margin`.
+
 # Assets
 ticker0: "QG=F"   # Mini natural gas (cash)
-ticker1: "MCL=F"  # Micro WTI crude oil (cash)
+ticker1: "CL=F"   # (Micro) WTI crude oil (cash)
 
 # Strategy Parameters
 z_entry: 2.0

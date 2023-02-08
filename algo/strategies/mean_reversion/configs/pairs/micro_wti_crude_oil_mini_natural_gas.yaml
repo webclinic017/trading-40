@@ -1,16 +1,25 @@
+# Note on MCL=F:
+# Micro Crude Oil Futures started on 12th-July-2021.
+# Price series is equivalent to CL=F, but CL has better data.
+# Here, we can use the `CL=F` symbol and still trade `micro` crude via appropriate
+# choices of `multiplier` and `margin`.
+
 # Assets
-ticker0: "MCL=F"  # Micro WTI crude oil (cash)
+ticker0: "CL=F"   # (Micro) WTI crude oil (cash)
 ticker1: "QG=F"   # Mini natural gas (cash)
+
+# Start Date: note the Micros started on `2021-07-12`.
+start_date: "2016-08-01"
 
 # Strategy Parameters
 z_entry: 2.0  # 2.0
-z_exit: 1.0
+z_exit: 0.5  # 1.0
 use_fixed_train_size: True
 
 # Minimum price fluctuation = 100 barrels.
 # Contract unit = $0.01 per barrel
 # Effective minimum tick per contract = 0.01 ($/barrel) * 100 (barrels) = $1
-multiplier0: 1
+multiplier0: 1.0
 
 # Minimum price fluctuation =  $0.005 per MMBtu.
 # Contract unit = 2,500 million British thermal units (mmBtu).

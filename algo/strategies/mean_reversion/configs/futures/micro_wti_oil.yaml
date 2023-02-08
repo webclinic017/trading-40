@@ -1,0 +1,18 @@
+# WTI crude oil using full contract ticker, with micro margins and spec.
+ticker: "CL=F"
+
+# Minimum price fluctuation = 100 barrels.
+# Contract unit = $0.01 per barrel
+# Effective minimum tick per contract = 0.01 ($/barrel) * 100 (barrels) = $1
+multiplier: 100
+
+# https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
+margin: 500
+
+# MCL Specs:
+#  Trading terminates 1 business day before the corresponding CL contract month
+#  or 4 business days before the 25th calendar of the month prior to the contract month.
+#  If the 25th calendar day is not a business day, trading terminates 5 business days
+#  before the 25th calendar day of the month prior to the contract month.
+# NOTE (JP): THERE ARE 6 TRADING DAYS PER WEEK - SATURDAY MUST ALSO BE A `BUSINESS DAY` IN THIS CONTEXT.
+expiry: 25

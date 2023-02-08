@@ -1,9 +1,12 @@
 # Idealised config for testing.
-ticker0: "MCL=F"
+ticker0: "CL=F"  # Note: CL=F and MCL=F are the same price series, but CL has more data.
 ticker1: "QG=F"
 
+# Start Date: note the Micros started on `2021-07-12`.
+start_data: "2021-07-12"
+
 z_entry: 2.0
-z_exit: 1.0
+z_exit: 0.5  # 1.0
 use_fixed_train_size: True
 
 multiplier0: 1

@@ -1,0 +1,23 @@
+# Assets
+ticker0: "M2K=F"   # Russell 2000 Micro Futures.
+ticker1: "MES=F"   # S&P500 Futures.
+
+# Start Date: note the Micros started on `2019-05-06`.
+start_date: "2019-05-06"
+
+# Strategy Parameters
+z_entry: 2.0  # 2.0
+z_exit: 0.5  # 1.0
+use_fixed_train_size: True
+
+# TODO
+multiplier0: 0.50  # https://www.cmegroup.com/markets/equities/russell/micro-e-mini-russell-2000.contractSpecs.html
+multiplier1: 1.25  # https://www.cmegroup.com/markets/equities/sp/micro-e-mini-sandp-500.contractSpecs.html
+
+# TODO
+margin0: 580
+margin1: 1060
+
+# Futures-like commission: x --> x%.
+commission0: 2.0
+commission1: 2.0
