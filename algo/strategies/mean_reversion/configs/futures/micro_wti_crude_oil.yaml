@@ -1,4 +1,0 @@
-ticker: "MCL=F"  # Micro WTI crude oil (cash settled)
-multiplier: 100  # Contract is for 100 barrels; price is $/barrel.
-margin: 500      # https://www.cmegroup.com/markets/energy/crude-oil/micro-wti-crude-oil.margins.html
-commission: 2.0  # Futures-like commission: x --> x%.

@@ -1,9 +1,0 @@
-num_data_full: 4000
-
-# Number of data points needed to train the initial model.
-num_train_initial: 100
-
-# Number of data points to elapse before retraining the model with the original and new data
-num_test: 60  # 23
-
-interval: "1m"

@@ -1,5 +1,0 @@
-ticker: "QG=F"     # Micro WTI crude oil (cash settled)
-multiplier: 100    # Contract is for 100 barrels; price is $/barrel.
-multiplier1: 2500  # Contract is for 2500 million British thermal units (mmBtu); price is $/mmBtu.
-margin: 1000       # https://www.cmegroup.com/markets/energy/natural-gas/emini-natural-gas.margins.html
-commission: 2.0    # Futures-like commission: x --> x%.
