@@ -39,6 +39,12 @@ def run(cfg: DictConfig):
     assert df0_raw.isna().sum().sum() == 0.0
     assert df1_raw.isna().sum().sum() == 0.0
 
+    # TODO!
+    # df0_raw["Datetime"] = pd.to_datetime(df0_raw["Datetime"], format="%Y-%m-%d %H:%M:%S")
+    # df1_raw["Datetime"] = pd.to_datetime(df1_raw["Datetime"], format="%Y-%m-%d %H:%M:%S")
+    # df0_raw["Datetime"] = pd.to_datetime(df0_raw["Datetime"], format="%Y-%m-%d")
+    # df1_raw["Datetime"] = pd.to_datetime(df1_raw["Datetime"], format="%Y-%m-%d")
+
     # Convert timezones (to UTC).
     if cfg.convert_timezone:
         df0_raw.index = df0_raw.index.tz_convert(None)
@@ -59,6 +65,32 @@ def run(cfg: DictConfig):
     # Restore original names (for backtrader).
     df0.columns = [col.strip(lsuffix) for col in df0.columns]
     df1.columns = [col.strip(rsuffix) for col in df1.columns]
+
+    def roll_date_wti_oil(month_df):
+        days = month_df.index.day.values
+
+        # Last trade is 4 business days before 25th if 25th is a Bday, else 5 business days before.
+        expiry = 25
+        last_trade = 21 if expiry in days else 20
+
+        # Account for `last_trade` being on a weekend too.
+        index = []
+        while len(index) == 0:
+            # index = month_df.index[month_df["day_of_month"] == last_trade]
+            index = month_df.index[month_df.index.day == last_trade]
+            last_trade -= 1
+
+            assert last_trade > 0
+
+        month_df.loc[index.strftime("%Y-%m-%d"), "roll_date"] = True
+
+        return month_df
+
+    df0["roll_date"] = False
+    dfg0 = df0.groupby(by=[df0.index.month, df0.index.year])
+    dfg0 = dfg0.apply(roll_date_wti_oil)
+
+    df0 = dfg0
 
     # Save raw data for post-trade analysis.
     data_dir = Path.cwd().joinpath("data")
@@ -87,6 +119,68 @@ def run(cfg: DictConfig):
         dtformat=("%Y-%m-%d %H:%M:%S"),
         timeformat=("%H:%M:%S"),
     )
+    ###
+    # from backtrader.feeds import PandasData
+    #
+    # class RollDatePandas(PandasData):
+    #     lines = ("roll_date",)
+    #     params = (("roll_date", 7),)
+    #
+    # data = RollDatePandas(
+    #     dataname=dfg0,
+    #     datetime=0,
+    #     open=1,
+    #     high=2,
+    #     low=3,
+    #     close=4,
+    #     roll_date=5,
+    # )
+    # class RollDateYahooFinanceCSVData(btfeeds.YahooFinanceCSVData):
+    #     lines = ("roll_date",)
+    #     params = (("roll_date", 8),)
+    #
+    # data0 = RollDateYahooFinanceCSVData(
+    #     name=cfg_asset0.ticker,
+    #     dataname=data_path0,
+    #     fromdate=start_date,
+    #     todate=end_date,
+    #     timeframe=timeframes[interval],
+    #     # compression=60,  # Minutes -> Hours.
+    #     tz=pytz.timezone(timezone),
+    #     dtformat=("%Y-%m-%d %H:%M:%S"),
+    #     timeformat=("%H:%M:%S"),
+    # )
+
+    from backtrader.feeds import GenericCSVData
+
+    class GenericCSV_PE(GenericCSVData):
+
+        # Add a 'pe' line to the inherited ones from the base class
+        lines = ('roll_date',)
+
+        # openinterest in GenericCSVData has index 7 ... add 1
+        # add the parameter to the parameters inherited from the base class
+        params = (('roll_date', 8),)
+
+    data0 = btfeeds.GenericCSVData(
+        dataname=data_path0,
+        fromdate=start_date,
+        todate=end_date,
+        # nullvalue=0.0,
+        dtformat=('%Y-%m-%d'),
+        datetime=0,
+        high=1,
+        low=2,
+        open=3,
+        close=4,
+        volume=5,
+        openinterest=-1,
+        roll_date=7,
+    )
+    # cb.adddata(data)
+
+    ###
+
     data1 = btfeeds.YahooFinanceCSVData(
         name=cfg_asset1.ticker,
         dataname=data_path1,
@@ -109,11 +203,15 @@ def run(cfg: DictConfig):
     cb.addstrategy(
         OUPairsTradingStrategy,
         asset0=cfg_asset0.ticker,
-        asset1=cfg_asset0.ticker,
+        asset1=cfg_asset1.ticker,
+        multiplier0=cfg_asset0.multiplier,
+        multiplier1=cfg_asset1.multiplier,
         z_entry=cfg.pairs.z_entry,
         z_exit=cfg.pairs.z_exit,
         risk_per_trade=cfg.risk_per_trade,
         num_train_initial=cfg.data.num_train_initial,
+        require_cointegrated=cfg.strategy.require_cointegrated,
+        trade_integer_quantities=cfg.strategy.trade_integer_quantities,
         num_test=cfg.data.num_test,
         use_fixed_train_size=cfg.pairs.use_fixed_train_size,
         dt=dt,
