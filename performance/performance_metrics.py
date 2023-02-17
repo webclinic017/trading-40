@@ -95,7 +95,6 @@ def sortino_ratio(
     # Storge to avoid editing `df` in-loop.
     sortinos = []
 
-    # Ugly, but avoids re-indexing. TODO: vectorise.
     for i, (_, row) in enumerate(df.iterrows()):
 
         # Get data to date to avoid lookahead error.

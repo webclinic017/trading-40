@@ -44,7 +44,6 @@ def compute_positions(df_in):
 
 
 # TODO: S1_pos, S2_pos - made distinction to preserve data. Careful to propagate.
-
 def compute_returns(df_in):
     """
     Naming convention: `returns := simple returns, returns_cml := cumulative returns`

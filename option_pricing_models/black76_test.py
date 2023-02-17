@@ -1,7 +1,6 @@
 from option_pricing_models.black76 import Black76Eur
 
 
-# TODO(JP): convert to pytest
 if __name__ == "__main__":
     F_t = 50
     X_t = 55

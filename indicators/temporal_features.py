@@ -9,14 +9,6 @@ def difference_features(df: pd.DataFrame, colnames: List[str]) -> pd.DataFrame:
     return df
 
 
-# TODO: deprecate.
-# def lag_features(df: pd.DataFrame, colname: str, time_periods: List[int]) -> pd.DataFrame:
-#     for k in time_periods:
-#         df[f"{colname}-{k}"] = df[colname].shift(k)
-#
-#     df.dropna(inplace=True)
-#
-#     return df
 
 def lag_features(df: pd.DataFrame, features: Dict[str, List[int]]) -> pd.DataFrame:
     for colname, time_periods in features.items():

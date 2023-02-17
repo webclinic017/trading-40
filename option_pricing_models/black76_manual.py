@@ -59,7 +59,6 @@ def put_black76(F_t, X_t, t, r_free, sigma, normal):
     return put_value
 
 
-# TODO(JP): convert to pytest
 if __name__ == "__main__":
     F_t = 50
     X_t = 55
