@@ -122,9 +122,9 @@ class OptimiserOU(Optimiser):
 
     def _create_candidates(self, asset1, asset2):
         start = 0.001
-        end = 1.0
+        # end = 1.0
         # end = 100.0
-        num = int(1 / start)
+        # num = int(1 / start)
         # B_candidates = np.linspace(start, end, num)
 
         # TMP
