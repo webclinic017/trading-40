@@ -22,7 +22,6 @@ def adf_stationarity(x: np.ndarray, trend: str, verbose: bool = False) -> bool:
                      f"S1 and S2 are cointegrated."
 
     adf = adfuller(x, regression=trend, autolag="AIC")
-    # adf = adfuller(x, regression=trend, autolag="AIC", regresults=True)
 
     critical_value_test_pass = False
     test_statistic = adf[0]
@@ -40,11 +39,5 @@ def adf_stationarity(x: np.ndarray, trend: str, verbose: bool = False) -> bool:
 
     if verbose and not test_pass:
         print("Failed to reject the null hypothesis - no cointegration.")
-
-    # if test_pass:
-    #     print(f"ADF p_value = {p_value}")
-
-    if critical_value_test_pass and not p_value_test_pass:
-        print("-"*80, "CV and not P")
 
     return test_pass
