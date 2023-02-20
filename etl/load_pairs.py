@@ -66,7 +66,6 @@ def get_pairs_data_backtest(ticker0, ticker1, start_date, end_date, interval, co
 
     df0["roll_date"] = 0
     df0 = df0.groupby(by=[df0.index.month, df0.index.year])
-    # df0 = df0.apply(roll_date_wti_oil, roll_date="roll_date")
     df0 = df0.apply(roll_fn0, roll_date="roll_date")
 
     df1["roll_date"] = 0
