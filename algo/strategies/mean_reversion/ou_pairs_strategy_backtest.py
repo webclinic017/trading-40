@@ -125,8 +125,8 @@ def run(cfg: DictConfig):
         btanalyzers.SharpeRatio,
         _name="sharpe_ratio_annual",
         annualize=True,
-        timeframe=bt.TimeFrame.Minutes,
-        compression=60,  # Workaround for hourly data.
+        timeframe=timeframes[interval],
+        # compression=60,  # Workaround for hourly data.
         riskfreerate=cfg.risk_free_rate,
         convertrate=True,
     )

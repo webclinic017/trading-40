@@ -14,6 +14,8 @@ class PairsTradingStrategy(bt.Strategy):
         self.order_sell = None
         self.order_close0 = None
         self.order_close1 = None
+        self.order_buy_roll = None
+        self.order_sell_roll = None
 
     def next(self):
         raise NotImplementedError
@@ -35,7 +37,13 @@ class PairsTradingStrategy(bt.Strategy):
         """
         Returns: True if an order is open to enter positions by buying or selling asset 0 or asset 1.
         """
-        return self.order_buy is not None or self.order_sell is not None
+        return self.order_buy is not None or self.order_sell is not None or \
+               self.order_buy_roll is not None or self.order_sell_roll is not None
+
+    @property
+    def is_rolling(self) -> bool:
+        return self.roll_long or self.roll_short or \
+               self.order_buy_roll is not None or self.order_sell_roll is not None
 
     @property
     def is_exit_order_pending(self) -> bool:
@@ -62,6 +70,17 @@ class PairsTradingStrategy(bt.Strategy):
             log_output += f", Margin: {e.margin:.2f}"
 
         print(log_output)
+
+    def notify_trade(self, trade):
+        trade_msg = f"{bt.num2date(trade.dtopen)} global_step = {self.global_step} Trade ID: {trade.ref} "
+        trade_msg += "LONG" if trade.long else "SHORT"
+        trade_msg += " OPENED " if trade.isopen else " CLOSED "
+        trade_msg += f"size = {trade.size}, price = {trade.price:.2f}, value = {trade.value:.2f}, "
+        trade_msg += f"PNL = {trade.pnl:.3f}, PNL_commission = {trade.pnlcomm:.3f}"
+        print(trade_msg)
+
+        if not trade.isopen:
+            print(f"\t{bt.num2date(trade.dtclose)} Close - Market prices: p0 = {self.S0[-1]:.2f}, p1 = {self.S1[-1]:.2f}")
 
 
 def pretrade_checks(S0, S1, spread, verbose=False, test_johansen=False, test_asset_unit_roots=False):
