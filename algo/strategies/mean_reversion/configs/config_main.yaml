@@ -2,19 +2,15 @@ defaults:
   - _self_
   - data: daily  # [hourly, daily]
   - pairs: micro_wti_oil_micro_rbob
-#  - micro_wti_oil
-#  - micro_rbob
 #  - pairs: wti_crude_oil_rbob
 #  - pairs: test_oil_gas_idealised
-#  - pairs: micro_wti_crude_oil_mini_natural_gas
-#  - pairs: sp500_fut_russell2000_fut
 
 broker:
   # Starting cash balance
   cash_initial: 5000000.0
 
 strategy:
-  dt: 1.0/252  # 1.0 # 1/23
+  dt: 1.0/252  # 1.0
   A: 1.0
   allow_single_legs: True  # Allow non-delta-neutral positions, e.g. in 1 asset only.
   require_cointegrated: False
